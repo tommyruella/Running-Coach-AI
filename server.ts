@@ -8,7 +8,6 @@ import path from 'path';
 import multer from 'multer';
 import dotenv from 'dotenv';
 import fs from 'fs';
-import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
 import { parseTcx } from './server/tcxParser.js';
 import {
@@ -46,8 +45,9 @@ const upload = multer({
 
 // Initialize Gemini SDK with telemetry headers
 const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY || '',
+  apiKey: process.env.GEMINI_API_KEY || 'dummy-key',
   httpOptions: {
+    baseUrl: 'https://generativelanguage.googleapis.com',
     headers: {
       'User-Agent': 'aistudio-build'
     }
@@ -455,6 +455,7 @@ async function startServer() {
   await initializeDb(); // Now safe, does nothing locally or on Vercel
 
   if (process.env.NODE_ENV !== 'production') {
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
