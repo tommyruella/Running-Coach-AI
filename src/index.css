@@ -1,0 +1,186 @@
+@import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
+
+@theme {
+  --color-lime-accent: #CCFF00;
+  --color-highdensity-bg: #0B0C0E;
+  --color-highdensity-panel: #0F1115;
+}
+
+/* Leaflet dark mode overrides */
+.leaflet-container {
+  background: #0a0a0a;
+  border-radius: 0.5rem;
+}
+.leaflet-tile-pane {
+  filter: grayscale(1) brightness(0.82) contrast(1.05);
+}
+.leaflet-control-attribution {
+  background: rgba(15,15,15,0.7) !important;
+  color: #52525b !important;
+  font-size: 9px !important;
+}
+.leaflet-control-attribution a {
+  color: #71717a !important;
+}
+.leaflet-bar {
+  border: none !important;
+  box-shadow: none !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+}
+.leaflet-control-zoom-in,
+.leaflet-control-zoom-out {
+  border-radius: 50% !important;
+  background: rgba(255, 255, 255, 0.15) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  color: rgba(255, 255, 255, 0.8) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  width: 30px !important;
+  height: 30px !important;
+  line-height: 28px !important;
+  font-size: 15px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2) !important;
+}
+.leaflet-control-zoom-in:hover,
+.leaflet-control-zoom-out:hover {
+  background: rgba(255, 255, 255, 0.25) !important;
+  color: #ffffff !important;
+  border-color: rgba(255, 255, 255, 0.4) !important;
+  transform: scale(1.05);
+}
+
+/* Background image behind all with mid opacity */
+body {
+  position: relative;
+  background-color: #09090b !important;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -1;
+  background-image: url('/images/background.jpg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  opacity: 0.2; /* Mid opacity (35%) */
+  pointer-events: none;
+}
+
+#app-root-container {
+  background-color: transparent !important;
+}
+
+/* Light mode overrides */
+body.light-theme {
+  background-color: #f4f4f5 !important;
+  color: #27272a !important;
+}
+
+body.light-theme::before {
+  opacity: 0.07;
+  filter: grayscale(1);
+}
+
+/* Override containers and cards */
+.light-theme .bg-zinc-900,
+.light-theme .bg-zinc-900\/20,
+.light-theme .bg-zinc-900\/30,
+.light-theme .bg-zinc-900\/40,
+.light-theme .bg-zinc-900\/50,
+.light-theme .bg-zinc-900\/60,
+.light-theme .bg-zinc-900\/80,
+.light-theme .bg-zinc-900\/90,
+.light-theme .bg-zinc-900\/95 {
+  background-color: rgba(255, 255, 255, 0.75) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border-color: rgba(228, 228, 231, 0.8) !important;
+  color: #27272a !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03) !important;
+}
+
+.light-theme .bg-zinc-950,
+.light-theme .bg-zinc-950\/20,
+.light-theme .bg-zinc-950\/50,
+.light-theme .bg-zinc-950\/80 {
+  background-color: rgba(244, 244, 245, 0.8) !important;
+  border-color: rgba(228, 228, 231, 0.8) !important;
+  color: #27272a !important;
+}
+
+/* Buttons and borders */
+.light-theme .border-zinc-800,
+.light-theme .border-zinc-800\/40,
+.light-theme .border-zinc-800\/50,
+.light-theme .border-zinc-800\/60,
+.light-theme .border-zinc-800\/80,
+.light-theme .border-zinc-700\/80,
+.light-theme .border-zinc-900 {
+  border-color: #e4e4e7 !important;
+}
+
+.light-theme .text-white {
+  color: #18181b !important;
+}
+
+.light-theme .text-zinc-300 {
+  color: #3f3f46 !important;
+}
+
+.light-theme .text-zinc-400 {
+  color: #52525b !important;
+}
+
+.light-theme .text-zinc-500 {
+  color: #52525b !important;
+}
+
+.light-theme .text-zinc-600 {
+  color: #71717a !important;
+}
+
+.light-theme .text-cyan-400 {
+  color: #0891b2 !important;
+}
+
+.light-theme .text-rose-400 {
+  color: #e11d48 !important;
+}
+
+.light-theme .text-lime-400 {
+  color: #65a30d !important;
+}
+
+/* Nav specific active states */
+.light-theme #nav-history-tab.bg-zinc-800,
+.light-theme #nav-dashboard-tab.bg-zinc-800 {
+  background-color: #e4e4e7 !important;
+  color: #18181b !important;
+}
+
+/* Fix active button (bg-zinc-700) and active calendar day (bg-zinc-800) in light mode */
+.light-theme .bg-zinc-700,
+.light-theme .bg-zinc-800 {
+  background-color: #27272a !important;
+  color: #ffffff !important;
+}
+
+/* Map tiles in light mode */
+.light-theme .leaflet-container {
+  background: #e4e4e7 !important;
+}
+.light-theme .leaflet-tile-pane {
+  filter: none !important; /* Standard colored maps look better in light mode */
+}

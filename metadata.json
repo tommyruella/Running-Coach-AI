@@ -1,0 +1,1 @@
+{"name":"Running Coach AI","description":"Dashboard running minimalista con Chat AI (Groq + modelli premium) per piani allenamento settimanali, analisi statistiche e parser file TCX.","requestFramePermissions":[],"majorCapabilities":["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]}
