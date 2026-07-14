@@ -452,8 +452,7 @@ app.post('/api/chat', async (req, res) => {
 
 // Express server & Vite Setup
 async function startServer() {
-  // Initialize DB files
-  await initializeDb();
+  await initializeDb(); // Now safe, does nothing locally or on Vercel
 
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
@@ -461,17 +460,22 @@ async function startServer() {
       appType: 'spa',
     });
     app.use(vite.middlewares);
-  } else {
-    const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
+    
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`Server Running Coach AI running on http://localhost:${PORT}`);
     });
+  } else {
+    // In production, Vercel handles static files.
+    // If running as a standalone node app (not Vercel), uncomment below:
+    // const distPath = path.join(process.cwd(), 'dist');
+    // app.use(express.static(distPath));
+    // app.get('*', (req, res) => res.sendFile(path.join(distPath, 'index.html')));
+    // app.listen(PORT, '0.0.0.0', () => console.log('Server running on port ' + PORT));
   }
-
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server Running Coach AI running on http://localhost:${PORT}`);
-  });
 }
 
+// Call startServer to initialize things if needed, but don't bind port in production on Vercel
 startServer();
+
+// EXPORT app for Vercel Serverless Functions!
+export default app;
