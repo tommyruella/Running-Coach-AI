@@ -133,6 +133,7 @@ export default function App() {
     let successCount = 0;
     let failedCount = 0;
     let lastActivityName = '';
+    let detailedError = '';
 
     for (let i = 0; i < files.length; i += BATCH_SIZE) {
       const batch = files.slice(i, i + BATCH_SIZE);
@@ -151,9 +152,18 @@ export default function App() {
           failedCount += result.failedCount || 0;
           if (result.activity) lastActivityName = result.activity.name;
         } else {
-          // Attempt to parse error, but handle HTML 413 responses safely
           const text = await response.text();
           console.error('Batch error:', text);
+          try {
+            const errObj = JSON.parse(text);
+            if (errObj.errors && errObj.errors.length > 0) {
+              detailedError = errObj.errors.join(' | ');
+            } else if (errObj.error) {
+              detailedError = errObj.error;
+            }
+          } catch (e) {
+            // plain text
+          }
           failedCount += batch.length;
         }
       } catch (error: any) {
@@ -168,10 +178,11 @@ export default function App() {
       } else {
         setUploadSuccess(`Sincronizzati con successo ${successCount} allenamenti! ${failedCount > 0 ? `(${failedCount} falliti)` : ''}`);
       }
+      if (detailedError) setUploadError(detailedError);
       await fetchData();
       setTimeout(() => setUploadSuccess(null), 5000);
     } else {
-      setUploadError(`Errore: impossibile caricare i file. ${failedCount} falliti.`);
+      setUploadError(detailedError || `Errore: impossibile caricare i file. ${failedCount} falliti.`);
     }
     
     setIsUploading(false);
