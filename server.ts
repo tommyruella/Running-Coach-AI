@@ -453,9 +453,9 @@ app.post('/api/chat', async (req, res) => {
 // Express server & Vite Setup
 async function startServer() {
   await initializeDb(); // Now safe, does nothing locally or on Vercel
-
   if (process.env.NODE_ENV !== 'production') {
-    const { createServer: createViteServer } = await import('vite');
+    const viteModule = 'vite';
+    const { createServer: createViteServer } = await import(/* @vite-ignore */ viteModule);
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
