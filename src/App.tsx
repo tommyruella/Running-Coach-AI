@@ -128,34 +128,53 @@ export default function App() {
     setUploadError(null);
     setUploadSuccess(null);
 
-    const formData = new FormData();
-    files.forEach((file) => {
-      formData.append('files', file);
-    });
+    // Chunk files into batches of 5 to avoid Vercel 4.5MB payload limit on Serverless Functions
+    const BATCH_SIZE = 5;
+    let successCount = 0;
+    let failedCount = 0;
+    let lastActivityName = '';
 
-    try {
-      const response = await fetch('/api/upload-tcx', {
-        method: 'POST',
-        body: formData
-      });
+    for (let i = 0; i < files.length; i += BATCH_SIZE) {
+      const batch = files.slice(i, i + BATCH_SIZE);
+      const formData = new FormData();
+      batch.forEach(f => formData.append('files', f));
 
-      const result = await response.json();
-      if (response.ok) {
-        if (files.length === 1) {
-          setUploadSuccess(`Sincronizzata corsa: "${result.activity?.name || 'Nuova attività'}"`);
+      try {
+        const response = await fetch('/api/upload-tcx', {
+          method: 'POST',
+          body: formData
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          successCount += result.successCount || 0;
+          failedCount += result.failedCount || 0;
+          if (result.activity) lastActivityName = result.activity.name;
         } else {
-          setUploadSuccess(`Sincronizzati con successo ${result.successCount} allenamenti!`);
+          // Attempt to parse error, but handle HTML 413 responses safely
+          const text = await response.text();
+          console.error('Batch error:', text);
+          failedCount += batch.length;
         }
-        await fetchData();
-        setTimeout(() => setUploadSuccess(null), 5000);
-      } else {
-        setUploadError(result.error || 'Impossibile analizzare i file TCX.');
+      } catch (error: any) {
+        console.error('Network error during upload:', error);
+        failedCount += batch.length;
       }
-    } catch (error: any) {
-      setUploadError(`Errore di rete: ${error.message || 'Riprova più tardi.'}`);
-    } finally {
-      setIsUploading(false);
     }
+
+    if (successCount > 0) {
+      if (files.length === 1) {
+        setUploadSuccess(`Sincronizzata corsa: "${lastActivityName || 'Nuova attività'}"`);
+      } else {
+        setUploadSuccess(`Sincronizzati con successo ${successCount} allenamenti! ${failedCount > 0 ? `(${failedCount} falliti)` : ''}`);
+      }
+      await fetchData();
+      setTimeout(() => setUploadSuccess(null), 5000);
+    } else {
+      setUploadError(`Errore: impossibile caricare i file. ${failedCount} falliti.`);
+    }
+    
+    setIsUploading(false);
   };
 
   return (
