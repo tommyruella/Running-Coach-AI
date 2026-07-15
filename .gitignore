@@ -8,3 +8,5 @@ coverage/
 !.env.example
 data/
 tcx/
+test-*.js
+test.tcx

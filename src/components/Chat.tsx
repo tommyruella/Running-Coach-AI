@@ -37,43 +37,8 @@ export default function Chat({ chatHistory, onSendMessage, onClearHistory, isSen
   };
 
   return (
-    <div className="flex flex-col fixed bottom-0 left-0 right-0 z-[3000] h-[75vh] sm:relative sm:inset-auto sm:h-[550px] sm:max-h-[80vh] w-full sm:w-[380px] glass-panel rounded-t-[24px] sm:rounded-2xl overflow-hidden shadow-2xl transition-transform" id="chat-widget">
+    <div className="flex flex-col w-full h-full min-h-[70vh] bg-zinc-950 rounded-[24px] border border-white/5 overflow-hidden shadow-2xl" id="chat-container">
       
-      {/* Mobile Drag Indicator */}
-      <div className="w-full flex justify-center pt-3 pb-1 sm:hidden bg-transparent">
-        <div className="w-12 h-1.5 bg-zinc-700 rounded-full"></div>
-      </div>
-
-      {/* Clean Chat Header */}
-      <div className="border-b border-white/5 px-5 py-3 flex items-center justify-between bg-white/5">
-        <div className="flex items-center gap-3">
-          <div className="h-8 w-8 bg-lime-400 rounded-full flex items-center justify-center text-black shadow-neon-glow">
-            <Sparkles className="h-4 w-4" />
-          </div>
-          <div>
-            <h3 className="text-sm font-display font-bold text-white tracking-tight uppercase">Coach AI Corsa</h3>
-            <p className="text-[10px] text-zinc-400 font-medium tracking-wide uppercase">AI Assistant</p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowClearConfirm(true)}
-            className="h-10 w-10 flex items-center justify-center text-zinc-400 hover:text-rose-400 hover:bg-white/10 rounded-full transition-colors"
-            title="Cancella conversazione"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
-          <button
-            onClick={onClose}
-            className="h-10 w-10 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-white/10 rounded-full transition-colors bg-white/5"
-            title="Chiudi chat"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-      </div>
-
       {/* Messages Scroll Area */}
       <div className="flex-1 overflow-y-auto p-5 space-y-6 bg-zinc-950" id="chat-messages-container">
         {chatHistory.map((msg) => {
@@ -136,25 +101,41 @@ export default function Chat({ chatHistory, onSendMessage, onClearHistory, isSen
       </div>
 
       {/* Input Form */}
-      <form onSubmit={handleSend} className="bg-transparent border-t border-white/5 p-4 flex gap-3">
-        <input
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          disabled={isSending}
-          placeholder="Chiedi un consiglio o crea un piano..."
-          className="flex-1 bg-white/5 border border-white/10 focus:border-white/20 rounded-full px-5 py-3.5 text-sm text-white placeholder-zinc-500 outline-none transition-colors"
-          id="chat-input-field"
-        />
-        <button
-          type="submit"
-          disabled={!input.trim() || isSending}
-          className="bg-lime-400 hover:bg-lime-300 disabled:bg-zinc-800 text-black disabled:text-zinc-600 rounded-full h-12 w-12 flex items-center justify-center font-bold transition-colors cursor-pointer shrink-0 shadow-neon-glow"
-          id="chat-submit-btn"
-        >
-          <Send className="h-4 w-4 ml-1" />
-        </button>
-      </form>
+      <div className="bg-zinc-950 border-t border-white/5 p-4 flex flex-col gap-3">
+        <form onSubmit={handleSend} className="flex gap-3">
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            disabled={isSending}
+            placeholder="Chiedi un consiglio o crea un piano..."
+            className="flex-1 bg-white/5 border border-white/10 focus:border-white/20 rounded-full px-5 py-3.5 text-sm text-white placeholder-zinc-500 outline-none transition-colors"
+            id="chat-input-field"
+          />
+          <button
+            type="submit"
+            disabled={!input.trim() || isSending}
+            className="bg-lime-400 hover:bg-lime-300 disabled:bg-zinc-800 text-black disabled:text-zinc-600 rounded-full h-12 w-12 flex items-center justify-center font-bold transition-colors cursor-pointer shrink-0 shadow-neon-glow"
+            id="chat-submit-btn"
+          >
+            <Send className="h-4 w-4 ml-1" />
+          </button>
+        </form>
+        <div className="flex justify-between items-center px-2">
+          <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-semibold flex items-center gap-1.5">
+            <Sparkles className="h-3 w-3 text-lime-400" />
+            AI Assistant
+          </span>
+          <button
+            type="button"
+            onClick={() => setShowClearConfirm(true)}
+            className="text-[10px] text-zinc-500 hover:text-rose-400 uppercase tracking-wider font-semibold transition-colors flex items-center gap-1 cursor-pointer"
+          >
+            <Trash2 className="h-3 w-3" />
+            Svuota Chat
+          </button>
+        </div>
+      </div>
 
       {/* Reset Confirmation Modal */}
       <AnimatePresence>

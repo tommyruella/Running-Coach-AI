@@ -11,10 +11,11 @@ import Dashboard from './components/Dashboard.tsx';
 import Chat from './components/Chat.tsx';
 import History from './components/History.tsx';
 import Admin from './components/Admin.tsx';
+import ActivityDetail from './components/ActivityDetail.tsx';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'history'>('dashboard');
-  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'history' | 'chat' | 'activity_detail'>('dashboard');
+  const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
     return (localStorage.getItem('theme') as 'dark' | 'light') || 'dark';
@@ -213,6 +214,19 @@ export default function App() {
                 onNavigateToHistory={() => setActiveTab('history')}
                 onSecretUnlock={() => setIsAdminOpen(true)}
               />
+            ) : activeTab === 'chat' ? (
+              <Chat
+                chatHistory={chatHistory}
+                onSendMessage={handleSendMessage}
+                onClearHistory={handleClearChatHistory}
+                isSending={isSending}
+                onClose={() => setActiveTab('dashboard')}
+              />
+            ) : activeTab === 'activity_detail' && selectedActivityId ? (
+              <ActivityDetail
+                activity={activities.find(a => a.id === selectedActivityId)!}
+                onBack={() => setActiveTab('history')}
+              />
             ) : (
               <History
                 activities={activities}
@@ -220,57 +234,34 @@ export default function App() {
                 isUploading={isUploading}
                 uploadError={uploadError}
                 uploadSuccess={uploadSuccess}
+                onActivitySelect={(id) => {
+                  setSelectedActivityId(id);
+                  setActiveTab('activity_detail');
+                }}
               />
             )}
           </motion.div>
         </AnimatePresence>
       </main>
 
-      {/* Floating Chat Widget Overlay */}
-      <div className="fixed bottom-24 right-6 z-[2000]">
-        <AnimatePresence>
-          {isChatOpen && (
-            <motion.div
-              initial={{ opacity: 0, y: 20, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 20, scale: 0.95 }}
-              transition={{ duration: 0.2 }}
-            >
-              <Chat
-                chatHistory={chatHistory}
-                onSendMessage={handleSendMessage}
-                onClearHistory={handleClearChatHistory}
-                isSending={isSending}
-                onClose={() => setIsChatOpen(false)}
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-
       {/* Floating Dynamic Island Navigation (Unified Bottom Fixed Nav) */}
       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[1500] w-[90%] max-w-[320px] sm:max-w-[350px]">
         <nav className="relative flex items-center justify-between bg-zinc-900/90 border border-zinc-800/80 rounded-full backdrop-blur-lg shadow-2xl shadow-black/50 px-2 h-16 transition-all duration-300">
 
           <div className="flex items-center gap-2">
-            {[,
-              { id: 'coach', icon: Sparkles, label: 'Coach' },
-              { id: 'dashboard', icon: Home, label: 'Home' }, // We'll keep TrendingUp or replace with Home if imported
+            {[
+              { id: 'chat', icon: Sparkles, label: 'Coach' },
+              { id: 'dashboard', icon: Home, label: 'Home' },
               { id: 'history', icon: Calendar, label: 'Storico' }
             ].map((item) => {
               const Icon = item.icon;
-              const isActive = (item.id === 'coach' && isChatOpen) || (item.id === activeTab && !isChatOpen);
+              const isActive = item.id === activeTab || (item.id === 'history' && activeTab === 'activity_detail');
 
               return (
                 <button
                   key={item.id}
                   onClick={() => {
-                    if (item.id === 'coach') {
-                      setIsChatOpen(!isChatOpen);
-                    } else {
-                      setActiveTab(item.id as 'history' | 'dashboard');
-                      setIsChatOpen(false);
-                    }
+                    setActiveTab(item.id as 'chat' | 'dashboard' | 'history');
                   }}
                   className="relative flex items-center justify-center w-14 h-14 cursor-pointer outline-none tap-highlight-transparent"
                   title={item.label}
