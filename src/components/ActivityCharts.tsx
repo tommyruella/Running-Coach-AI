@@ -13,19 +13,19 @@ import {
   Scatter,
   XAxis,
   YAxis,
-  CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Legend,
 } from 'recharts';
 import { Trackpoint } from '../types.js';
 
 interface ActivityChartsProps {
   trackpoints: Trackpoint[];
   distanceKm: number;
+  mapHeight?: number;
+  compact?: boolean;
 }
 
-// --- Leaflet Map Component (lazy-loaded to avoid SSR issues) ---
+// --- Leaflet Map Component ---
 const LeafletMap: React.FC<{ trackpoints: Trackpoint[] }> = ({ trackpoints }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
@@ -38,43 +38,41 @@ const LeafletMap: React.FC<{ trackpoints: Trackpoint[] }> = ({ trackpoints }) =>
   useEffect(() => {
     if (!mapContainerRef.current || coordPoints.length === 0) return;
 
-    // Prevent double-init
     if (mapRef.current) {
       mapRef.current.remove();
       mapRef.current = null;
     }
 
     import('leaflet').then(L => {
-      // Fix default icon paths for bundlers
-
       const latLngs: [number, number][] = coordPoints.map(tp => [tp.latitude!, tp.longitude!]);
 
       const map = L.map(mapContainerRef.current!, {
         zoomControl: false,
         attributionControl: false,
-        scrollWheelZoom: true,
+        scrollWheelZoom: false,
+        dragging: true,
       });
 
       mapRef.current = map;
 
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
         maxZoom: 19,
         subdomains: 'abcd',
       }).addTo(map);
 
-      // Draw route polyline
       const polyline = L.polyline(latLngs, {
         color: '#a3e635',
-        weight: 4,
-        opacity: 0.9,
+        weight: 5,
+        opacity: 0.95,
         lineJoin: 'round',
+        lineCap: 'round',
       }).addTo(map);
 
       // Start Marker
       L.circleMarker(latLngs[0], {
-        radius: 8,
+        radius: 7,
         fillColor: '#22c55e',
-        color: '#fff',
+        color: '#000',
         weight: 2,
         opacity: 1,
         fillOpacity: 1,
@@ -82,15 +80,15 @@ const LeafletMap: React.FC<{ trackpoints: Trackpoint[] }> = ({ trackpoints }) =>
 
       // End Marker
       L.circleMarker(latLngs[latLngs.length - 1], {
-        radius: 8,
+        radius: 7,
         fillColor: '#ef4444',
-        color: '#fff',
+        color: '#000',
         weight: 2,
         opacity: 1,
         fillOpacity: 1,
       }).addTo(map).bindTooltip('Fine', { permanent: false });
 
-      map.fitBounds(polyline.getBounds(), { padding: [24, 24] });
+      map.fitBounds(polyline.getBounds(), { padding: [32, 32] });
     });
 
     return () => {
@@ -115,19 +113,18 @@ const LeafletMap: React.FC<{ trackpoints: Trackpoint[] }> = ({ trackpoints }) =>
 // --- Custom Tooltip Styles ---
 const ChartTooltipStyle = {
   contentStyle: {
-    background: '#18181b',
-    border: '1px solid #27272a',
-    borderRadius: '8px',
+    background: '#0a0a0a',
+    border: '1px solid rgba(255,255,255,0.07)',
+    borderRadius: '10px',
     fontSize: '11px',
     color: '#e4e4e7',
   },
   itemStyle: { color: '#e4e4e7' },
-  labelStyle: { color: '#71717a', fontSize: '10px' },
+  labelStyle: { color: '#52525b', fontSize: '10px' },
 };
 
 // --- Main Charts Component ---
-export default function ActivityCharts({ trackpoints, distanceKm }: ActivityChartsProps) {
-  // Downsample to max 400 points for performance
+export default function ActivityCharts({ trackpoints, distanceKm, mapHeight = 380, compact = false }: ActivityChartsProps) {
   const downsample = (arr: Trackpoint[], maxPts: number) => {
     if (arr.length <= maxPts) return arr;
     const step = Math.ceil(arr.length / maxPts);
@@ -136,16 +133,12 @@ export default function ActivityCharts({ trackpoints, distanceKm }: ActivityChar
 
   const sampled = useMemo(() => downsample(trackpoints, 400), [trackpoints]);
 
-  // Build chart data series indexed by distance (km)
   const chartData = useMemo(() => {
     return sampled.map((tp, idx) => {
       const distKm = tp.distanceMeters !== undefined
         ? parseFloat((tp.distanceMeters / 1000).toFixed(2))
         : parseFloat(((idx / (sampled.length - 1)) * distanceKm).toFixed(2));
 
-      // Convert speed (km/h) to pace (min/km as decimal).
-      // Filter out speeds below 2 km/h (GPS noise, standing still, pauses).
-      // Cap at 20 min/km to avoid chart scale distortion from brief stops.
       let paceDecimal: number | undefined;
       if (tp.speedKmh && tp.speedKmh >= 2.0) {
         const raw = 60 / tp.speedKmh;
@@ -158,7 +151,7 @@ export default function ActivityCharts({ trackpoints, distanceKm }: ActivityChar
         hr: tp.heartRate,
         pace: paceDecimal,
         speedKmh: tp.speedKmh !== undefined ? parseFloat(tp.speedKmh.toFixed(1)) : undefined,
-        cadence: tp.cadence ?? undefined, // already doubled in parser
+        cadence: tp.cadence ?? undefined,
       };
     });
   }, [sampled, distanceKm]);
@@ -173,12 +166,11 @@ export default function ActivityCharts({ trackpoints, distanceKm }: ActivityChar
     if (!val) return '';
     const min = Math.floor(val);
     const sec = Math.round((val - min) * 60);
-    return `${min}:${sec.toString().padStart(2, '0')} /km`;
+    return `${min}:${sec.toString().padStart(2, '0')}`;
   };
 
-  const distFormatter = (val: number) => `${val.toFixed(1)} km`;
+  const distFormatter = (val: number) => `${val.toFixed(1)}km`;
 
-  // Custom scatter dot shape for cadence false-color rendering
   const CadenceDot = (props: any) => {
     const { cx, cy, payload } = props;
     if (cx === undefined || cy === undefined || !payload) return null;
@@ -186,288 +178,110 @@ export default function ActivityCharts({ trackpoints, distanceKm }: ActivityChar
     if (cad === undefined) return null;
 
     let fill = '#a3e635';
-    if (cad < 155) {
-      fill = '#ef4444'; // Bassa (< 155) - Rosso
-    } else if (cad < 170) {
-      fill = '#f97316'; // Moderata-Bassa (< 170) - Arancio
-    } else if (cad < 185) {
-      fill = '#a3e635'; // Ottimale (< 185) - Lime
-    } else {
-      fill = '#06b6d4'; // Alta (>= 185) - Ciano
-    }
+    if (cad < 155) fill = '#ef4444';
+    else if (cad < 170) fill = '#f97316';
+    else if (cad < 185) fill = '#a3e635';
+    else fill = '#06b6d4';
 
     return <circle cx={cx} cy={cy} r={2.5} fill={fill} stroke="none" />;
   };
 
+  const chartHeight = compact ? 140 : 220;
+
   return (
-    <div className="space-y-6">
-      {/* GPS Map */}
+    <div className="space-y-0">
+      {/* GPS Map — bare, no wrapper card */}
       {hasGps && (
-        <div className="bg-zinc-900/60 border border-zinc-800/80 rounded-xl p-4 space-y-2">
-          <span className="text-[9px] text-zinc-500 uppercase font-mono tracking-wider flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-lime-400 inline-block"></span>
-            Percorso GPS
-          </span>
-          <div className="w-full h-96 rounded-lg overflow-hidden border border-zinc-800">
-            <LeafletMap trackpoints={trackpoints} />
-          </div>
-          <div className="flex items-center gap-4 text-[9px] text-zinc-500 font-mono">
-            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500 inline-block"></span> Partenza</span>
-            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500 inline-block"></span> Arrivo</span>
-          </div>
+        <div style={{ height: mapHeight }} className="w-full overflow-hidden">
+          <LeafletMap trackpoints={trackpoints} />
         </div>
       )}
 
-      {/* Altitude + Pace chart */}
-      {hasAlt && (
-        <div className="bg-zinc-900/60 border border-zinc-800/80 rounded-xl p-4 space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-[9px] text-zinc-500 uppercase font-mono tracking-wider flex items-center gap-3">
-              Profilo Altitudine & Passo
-            </span>
-            <div className="flex items-center gap-3 text-[9px] font-mono">
-              <span className="flex items-center gap-1.5 text-zinc-400">
-                <span className="w-2 h-2 rounded bg-white/30"></span> Altitudine
-              </span>
-              {hasPace && (
-                <span className="flex items-center gap-1.5 text-cyan-400">
-                  <span className="w-2 h-0.5 bg-cyan-400"></span> Passo
-                </span>
-              )}
+      {!compact && (
+        <>
+          {/* Altitude + Pace chart — no wrapper card */}
+          {hasAlt && (
+            <div className="pt-6 px-2 space-y-2">
+              <div className="flex items-center justify-between px-1">
+                <span className="text-[9px] text-zinc-500 uppercase font-mono tracking-widest">Altitudine & Passo</span>
+                <div className="flex items-center gap-4 text-[9px] font-mono">
+                  <span className="flex items-center gap-1.5 text-zinc-400"><span className="w-2 h-0.5 bg-white/30 inline-block" /> Alt</span>
+                  {hasPace && <span className="flex items-center gap-1.5 text-cyan-400"><span className="w-2 h-0.5 bg-cyan-400 inline-block" /> Passo</span>}
+                </div>
+              </div>
+              <ResponsiveContainer width="100%" height={chartHeight}>
+                <ComposedChart data={chartData} margin={{ top: 4, right: 0, left: -24, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="altGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#ffffff" stopOpacity={0.08} />
+                      <stop offset="95%" stopColor="#ffffff" stopOpacity={0.0} />
+                    </linearGradient>
+                  </defs>
+                  <XAxis dataKey="dist" tickFormatter={distFormatter} tick={{ fontSize: 9, fill: '#3f3f46' }} stroke="none" tickLine={false} axisLine={false} interval={Math.max(1, Math.floor(chartData.length / 5))} />
+                  <YAxis yAxisId="alt" tick={{ fontSize: 9, fill: '#52525b' }} stroke="none" tickLine={false} axisLine={false} unit="m" width={36} />
+                  {hasPace && <YAxis yAxisId="pace" orientation="right" reversed tick={{ fontSize: 9, fill: '#22d3ee' }} stroke="none" tickLine={false} axisLine={false} tickFormatter={paceFormatter} domain={['auto', 'auto']} width={44} />}
+                  <Tooltip {...ChartTooltipStyle} formatter={(val: any, name: string) => {
+                    if (name === 'Altitudine') return [`${val} m`, name];
+                    if (name === 'Passo') return [paceFormatter(val) + ' /km', name];
+                    return [val, name];
+                  }} labelFormatter={distFormatter} />
+                  <Area yAxisId="alt" type="monotone" dataKey="altitude" name="Altitudine" stroke="rgba(255,255,255,0.3)" strokeWidth={1.5} fill="url(#altGrad)" dot={false} connectNulls opacity={0.8} />
+                  {hasPace && <Line yAxisId="pace" type="monotone" dataKey="pace" name="Passo" stroke="#22d3ee" strokeWidth={1.5} dot={false} connectNulls />}
+                </ComposedChart>
+              </ResponsiveContainer>
             </div>
-          </div>
-          <ResponsiveContainer width="100%" height={260}>
-            <ComposedChart data={chartData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
-              <defs>
-                <linearGradient id="altGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#ffffff" stopOpacity={0.1} />
-                  <stop offset="95%" stopColor="#ffffff" stopOpacity={0.0} />
-                </linearGradient>
-              </defs>
-              <XAxis
-                dataKey="dist"
-                tickFormatter={distFormatter}
-                tick={{ fontSize: 9, fill: '#52525b' }}
-                stroke="none"
-                tickLine={false}
-                axisLine={false}
-                interval={Math.max(1, Math.floor(chartData.length / 5))}
-              />
-              {/* Altitude axis - left */}
-              <YAxis
-                yAxisId="alt"
-                tick={{ fontSize: 9, fill: '#71717a' }}
-                stroke="none"
-                tickLine={false}
-                axisLine={false}
-                unit="m"
-                width={40}
-              />
-              {/* Pace axis - right */}
-              {hasPace && (
-                <YAxis
-                  yAxisId="pace"
-                  orientation="right"
-                  reversed
-                  tick={{ fontSize: 9, fill: '#22d3ee' }}
-                  stroke="none"
-                  tickLine={false}
-                  axisLine={false}
-                  tickFormatter={paceFormatter}
-                  domain={['auto', 'auto']}
-                  width={52}
-                />
-              )}
-              <Tooltip
-                {...ChartTooltipStyle}
-                formatter={(val: any, name: string) => {
-                  if (name === 'Altitudine') return [`${val} m`, name];
-                  if (name === 'Passo') return [paceFormatter(val), name];
-                  return [val, name];
-                }}
-                labelFormatter={distFormatter}
-              />
-              <Area
-                yAxisId="alt"
-                type="monotone"
-                dataKey="altitude"
-                name="Altitudine"
-                stroke="#ffffff"
-                strokeWidth={1.5}
-                fill="url(#altGrad)"
-                dot={false}
-                connectNulls
-                opacity={0.8}
-              />
-              {hasPace && (
-                <Line
-                  yAxisId="pace"
-                  type="monotone"
-                  dataKey="pace"
-                  name="Passo"
-                  stroke="#22d3ee"
-                  strokeWidth={1.5}
-                  dot={false}
-                  connectNulls
-                />
-              )}
-            </ComposedChart>
-          </ResponsiveContainer>
-        </div>
-      )}
+          )}
 
-      {/* Pace + HR combined chart */}
-      {(hasPace || hasHr) && (
-        <div className="bg-zinc-900/60 border border-zinc-800/80 rounded-xl p-4 space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-[9px] text-zinc-500 uppercase font-mono tracking-wider flex items-center gap-3">
-              Passo & Frequenza Cardiaca
-            </span>
-            <div className="flex items-center gap-3 text-[9px] font-mono">
-              {hasPace && (
-                <span className="flex items-center gap-1.5 text-cyan-400">
-                  <span className="w-2 h-0.5 bg-cyan-400"></span> Passo
-                </span>
-              )}
-              {hasHr && (
-                <span className="flex items-center gap-1.5 text-rose-400">
-                  <span className="w-2 h-0.5 bg-rose-400"></span> FC
-                </span>
-              )}
+          {/* Pace + HR chart */}
+          {(hasPace || hasHr) && (
+            <div className="pt-4 px-2 space-y-2">
+              <div className="flex items-center justify-between px-1">
+                <span className="text-[9px] text-zinc-500 uppercase font-mono tracking-widest">Passo & FC</span>
+                <div className="flex items-center gap-4 text-[9px] font-mono">
+                  {hasPace && <span className="flex items-center gap-1.5 text-cyan-400"><span className="w-2 h-0.5 bg-cyan-400 inline-block" /> Passo</span>}
+                  {hasHr && <span className="flex items-center gap-1.5 text-rose-400"><span className="w-2 h-0.5 bg-rose-400 inline-block" /> BPM</span>}
+                </div>
+              </div>
+              <ResponsiveContainer width="100%" height={chartHeight}>
+                <LineChart data={chartData} margin={{ top: 4, right: 0, left: -24, bottom: 0 }}>
+                  <XAxis dataKey="dist" tickFormatter={distFormatter} tick={{ fontSize: 9, fill: '#3f3f46' }} stroke="none" tickLine={false} axisLine={false} interval={Math.max(1, Math.floor(chartData.length / 5))} />
+                  <YAxis yAxisId="pace" reversed tick={{ fontSize: 9, fill: '#22d3ee' }} stroke="none" tickLine={false} axisLine={false} tickFormatter={paceFormatter} domain={['auto', 'auto']} width={44} />
+                  <YAxis yAxisId="hr" orientation="right" tick={{ fontSize: 9, fill: '#f43f5e' }} stroke="none" tickLine={false} axisLine={false} unit=" bpm" domain={['auto', 'auto']} width={40} />
+                  <Tooltip {...ChartTooltipStyle} formatter={(val: any, name: string) => {
+                    if (name === 'Passo') return [paceFormatter(val) + ' /km', name];
+                    if (name === 'FC') return [`${val} bpm`, name];
+                    return [val, name];
+                  }} labelFormatter={distFormatter} />
+                  {hasPace && <Line yAxisId="pace" type="monotone" dataKey="pace" name="Passo" stroke="#22d3ee" strokeWidth={1.5} dot={false} connectNulls />}
+                  {hasHr && <Line yAxisId="hr" type="monotone" dataKey="hr" name="FC" stroke="#f43f5e" strokeWidth={1.5} dot={false} connectNulls />}
+                </LineChart>
+              </ResponsiveContainer>
             </div>
-          </div>
-          <ResponsiveContainer width="100%" height={260}>
-            <LineChart data={chartData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
-              <XAxis
-                dataKey="dist"
-                tickFormatter={distFormatter}
-                tick={{ fontSize: 9, fill: '#52525b' }}
-                stroke="none"
-                tickLine={false}
-                axisLine={false}
-                interval={Math.max(1, Math.floor(chartData.length / 5))}
-              />
-              {/* Pace axis (left) */}
-              <YAxis
-                yAxisId="pace"
-                reversed
-                tick={{ fontSize: 9, fill: '#22d3ee' }}
-                stroke="none"
-                tickLine={false}
-                axisLine={false}
-                tickFormatter={paceFormatter}
-                domain={['auto', 'auto']}
-                width={52}
-              />
-              {/* HR axis (right) */}
-              <YAxis
-                yAxisId="hr"
-                orientation="right"
-                tick={{ fontSize: 9, fill: '#f43f5e' }}
-                stroke="none"
-                tickLine={false}
-                axisLine={false}
-                unit=" bpm"
-                domain={['auto', 'auto']}
-                width={44}
-              />
-              <Tooltip
-                {...ChartTooltipStyle}
-                formatter={(val: any, name: string) => {
-                  if (name === 'Passo') return [paceFormatter(val), name];
-                  if (name === 'FC') return [`${val} bpm`, name];
-                  return [val, name];
-                }}
-                labelFormatter={distFormatter}
-              />
-              {hasPace && (
-                <Line
-                  yAxisId="pace"
-                  type="monotone"
-                  dataKey="pace"
-                  name="Passo"
-                  stroke="#22d3ee"
-                  strokeWidth={1.5}
-                  dot={false}
-                  connectNulls
-                />
-              )}
-              {hasHr && (
-                <Line
-                  yAxisId="hr"
-                  type="monotone"
-                  dataKey="hr"
-                  name="FC"
-                  stroke="#f43f5e"
-                  strokeWidth={1.5}
-                  dot={false}
-                  connectNulls
-                />
-              )}
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      )}
+          )}
 
-      {/* Cadence Scatter Chart */}
-      {hasCadence && (
-        <div className="bg-zinc-900/60 border border-zinc-800/80 rounded-xl p-4 space-y-2">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-            <span className="text-[9px] text-zinc-500 uppercase font-mono tracking-wider">
-              Distribuzione Cadenza (ppm)
-            </span>
-            <div className="flex flex-wrap items-center gap-3 text-[8px] font-mono">
-              <span className="flex items-center gap-1 text-rose-500">
-                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block"></span> &lt;155
-              </span>
-              <span className="flex items-center gap-1 text-orange-400">
-                <span className="w-1.5 h-1.5 rounded-full bg-orange-400 inline-block"></span> &lt;170
-              </span>
-              <span className="flex items-center gap-1 text-lime-400">
-                <span className="w-1.5 h-1.5 rounded-full bg-lime-400 inline-block"></span> &lt;185
-              </span>
-              <span className="flex items-center gap-1 text-cyan-400">
-                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 inline-block"></span> &gt;=185
-              </span>
+          {/* Cadence chart */}
+          {hasCadence && (
+            <div className="pt-4 px-2 space-y-2">
+              <div className="flex items-center justify-between px-1">
+                <span className="text-[9px] text-zinc-500 uppercase font-mono tracking-widest">Cadenza (ppm)</span>
+                <div className="flex flex-wrap items-center gap-3 text-[8px] font-mono">
+                  <span className="flex items-center gap-1 text-rose-500"><span className="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block" /> &lt;155</span>
+                  <span className="flex items-center gap-1 text-orange-400"><span className="w-1.5 h-1.5 rounded-full bg-orange-400 inline-block" /> &lt;170</span>
+                  <span className="flex items-center gap-1 text-lime-400"><span className="w-1.5 h-1.5 rounded-full bg-lime-400 inline-block" /> &lt;185</span>
+                  <span className="flex items-center gap-1 text-cyan-400"><span className="w-1.5 h-1.5 rounded-full bg-cyan-400 inline-block" /> ≥185</span>
+                </div>
+              </div>
+              <ResponsiveContainer width="100%" height={chartHeight}>
+                <ComposedChart data={chartData} margin={{ top: 4, right: 0, left: -24, bottom: 0 }}>
+                  <XAxis dataKey="dist" tickFormatter={distFormatter} tick={{ fontSize: 9, fill: '#3f3f46' }} stroke="none" tickLine={false} axisLine={false} interval={Math.max(1, Math.floor(chartData.length / 5))} />
+                  <YAxis yAxisId="cad" tick={{ fontSize: 9, fill: '#52525b' }} stroke="none" tickLine={false} axisLine={false} unit=" spm" domain={['auto', 'auto']} width={44} />
+                  <Tooltip {...ChartTooltipStyle} formatter={(val: any) => [`${val} ppm`, 'Cadenza']} labelFormatter={distFormatter} />
+                  <Scatter yAxisId="cad" dataKey="cadence" name="Cadenza" line={false} shape={<CadenceDot />} legendType="none" />
+                </ComposedChart>
+              </ResponsiveContainer>
             </div>
-          </div>
-          <ResponsiveContainer width="100%" height={260}>
-            <ComposedChart data={chartData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
-              <XAxis
-                dataKey="dist"
-                tickFormatter={distFormatter}
-                tick={{ fontSize: 9, fill: '#52525b' }}
-                stroke="none"
-                tickLine={false}
-                axisLine={false}
-                interval={Math.max(1, Math.floor(chartData.length / 5))}
-              />
-              <YAxis
-                yAxisId="cad"
-                tick={{ fontSize: 9, fill: '#71717a' }}
-                stroke="none"
-                tickLine={false}
-                axisLine={false}
-                unit=" spm"
-                domain={['auto', 'auto']}
-                width={52}
-              />
-              <Tooltip
-                {...ChartTooltipStyle}
-                formatter={(val: any) => [`${val} ppm`, 'Cadenza']}
-                labelFormatter={distFormatter}
-              />
-              <Scatter
-                yAxisId="cad"
-                dataKey="cadence"
-                name="Cadenza"
-                line={false}
-                shape={<CadenceDot />}
-                legendType="none"
-              />
-            </ComposedChart>
-          </ResponsiveContainer>
-        </div>
+          )}
+        </>
       )}
     </div>
   );
