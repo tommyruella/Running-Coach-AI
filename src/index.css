@@ -3,8 +3,46 @@
 
 @theme {
   --color-lime-accent: #CCFF00;
-  --color-highdensity-bg: #0B0C0E;
-  --color-highdensity-panel: #0F1115;
+  --color-neon-orange: #FF4500;
+  --color-highdensity-bg: #0A0A0A;
+  --color-highdensity-panel: #121212;
+  --font-sans: "Inter", "system-ui", "-apple-system", sans-serif;
+  --font-display: "Oswald", "system-ui", "-apple-system", sans-serif;
+}
+
+/* Custom UI Utilities for Athletic Bento System */
+@layer utilities {
+  .glass-panel {
+    background: rgba(255, 255, 255, 0.04);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  
+  .glass-neon-border {
+    background: rgba(204, 255, 0, 0.04);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(204, 255, 0, 0.2);
+  }
+
+  .shadow-neon-glow {
+    box-shadow: 0px 8px 32px rgba(204, 255, 0, 0.15);
+  }
+
+  .shadow-neon-glow-red {
+    box-shadow: 0px 8px 32px rgba(255, 69, 0, 0.15);
+  }
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-highdensity-bg);
+  color: #fff;
+}
+
+h1, h2, h3, .font-display {
+  font-family: var(--font-display);
 }
 
 /* Native App Feel */

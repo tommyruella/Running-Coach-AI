@@ -458,35 +458,35 @@ export default function History({ activities, onUploadTcx, isUploading, uploadEr
               <div 
                 key={act.id}
                 id={`act_${act.id}`}
-                className={`bg-zinc-900 border rounded-lg overflow-hidden transition-all duration-200 ${
-                  isExpanded ? 'border-zinc-700 shadow-lg' : 'border-zinc-800/80 hover:border-zinc-700'
+                className={`glass-panel overflow-hidden transition-all duration-300 ${
+                  isExpanded ? 'rounded-[32px] shadow-neon-glow border-lime-400/30 bg-zinc-950/80' : 'rounded-[24px] hover:border-white/20'
                 }`}
               >
                 {/* Collapsible Header */}
                 <div 
                   onClick={() => toggleExpand(act.id)}
-                  className="p-4 flex items-center justify-between gap-4 cursor-pointer select-none"
+                  className="p-5 sm:p-6 flex items-center justify-between gap-4 cursor-pointer select-none"
                 >
-                  <div className="flex items-center gap-4 min-w-0">
-                    {/* Distance Circular Indicator */}
-                    <div className="h-10 w-10 rounded bg-zinc-950 border border-zinc-800 text-lime-400 flex flex-col items-center justify-center shrink-0">
-                      <span className="text-sm font-bold tracking-tight font-mono leading-none">{act.distanceKm.toFixed(1)}</span>
-                      <span className="text-[7px] font-medium uppercase mt-0.5 text-zinc-500">km</span>
+                  <div className="flex items-center gap-5 min-w-0">
+                    {/* Distance Big Metric */}
+                    <div className="flex items-end gap-1 shrink-0">
+                      <span className="text-4xl sm:text-5xl font-display font-bold text-lime-400 leading-none tracking-tighter">{act.distanceKm.toFixed(1)}</span>
+                      <span className="text-xs font-bold uppercase text-zinc-500 mb-1">km</span>
                     </div>
 
                     <div className="min-w-0">
-                      <h4 className="text-sm font-semibold text-white truncate">
+                      <h4 className="text-base sm:text-lg font-bold text-white truncate font-display uppercase tracking-wide">
                         {act.name}
                       </h4>
-                      <p className="text-[10px] text-zinc-500 flex flex-wrap items-center gap-2 mt-0.5">
-                        <span className="capitalize">{dateStr}</span>
-                        <span>•</span>
+                      <p className="text-[10px] text-zinc-400 font-medium flex flex-wrap items-center gap-2 mt-1 uppercase tracking-wider">
+                        <span>{dateStr}</span>
+                        <span className="text-zinc-700">•</span>
                         <span>{timeStr}</span>
                         {act.deviceModel && (
                           <>
-                            <span>•</span>
-                            <span className="flex items-center gap-1">
-                              <Watch className="h-3 w-3 text-zinc-500" />
+                            <span className="text-zinc-700">•</span>
+                            <span className="flex items-center gap-1 text-lime-400/80">
+                              <Watch className="h-3 w-3" />
                               {act.deviceModel}
                             </span>
                           </>
@@ -497,104 +497,117 @@ export default function History({ activities, onUploadTcx, isUploading, uploadEr
 
                   {/* Summary Metric Strip */}
                   <div className="flex items-center gap-4 shrink-0 font-mono text-xs text-zinc-400">
-                    <div className="hidden sm:grid grid-cols-4 gap-6 text-right mr-2">
+                    <div className="hidden sm:grid grid-cols-4 gap-8 text-right mr-4">
                       <div>
-                        <span className="text-[9px] text-zinc-500 block">PASSO</span>
-                        <span className="font-bold text-white block mt-0.5">{act.avgPace}</span>
+                        <span className="text-[9px] text-zinc-500 block uppercase tracking-widest font-sans">Passo</span>
+                        <span className="font-bold text-white block mt-1 text-sm">{act.avgPace}</span>
                       </div>
                       <div>
-                        <span className="text-[9px] text-zinc-500 block">DURATA</span>
-                        <span className="font-bold text-white block mt-0.5">{act.durationMin}m</span>
+                        <span className="text-[9px] text-zinc-500 block uppercase tracking-widest font-sans">Durata</span>
+                        <span className="font-bold text-white block mt-1 text-sm">{act.durationMin}m</span>
                       </div>
                       <div>
-                        <span className="text-[9px] text-zinc-500 block">BATTITO</span>
-                        <span className="font-bold text-rose-400 block mt-0.5">
-                          {act.avgHeartRate ? `${act.avgHeartRate} bpm` : '--'}
+                        <span className="text-[9px] text-zinc-500 block uppercase tracking-widest font-sans">BPM</span>
+                        <span className="font-bold text-rose-400 block mt-1 text-sm">
+                          {act.avgHeartRate ? act.avgHeartRate : '--'}
                         </span>
                       </div>
                       <div>
-                        <span className="text-[9px] text-zinc-500 block">CADENZA</span>
-                        <span className="font-bold text-cyan-400 block mt-0.5">
-                          {act.avgCadence ? `${act.avgCadence} ppm` : '--'}
+                        <span className="text-[9px] text-zinc-500 block uppercase tracking-widest font-sans">PPM</span>
+                        <span className="font-bold text-cyan-400 block mt-1 text-sm">
+                          {act.avgCadence ? act.avgCadence : '--'}
                         </span>
                       </div>
                     </div>
 
-                    <div className="text-zinc-500 p-1 hover:bg-zinc-800 rounded transition-colors">
-                      {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                    <div className="text-white p-2 bg-white/5 hover:bg-white/10 rounded-full transition-colors">
+                      {isExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
                     </div>
                   </div>
                 </div>
 
-                {/* Collapsible Content */}
+                {/* Collapsible Content - Bento Grid layout */}
                 <AnimatePresence>
                   {isExpanded && (
                     <motion.div
                       initial={{ height: 0, opacity: 0 }}
                       animate={{ height: 'auto', opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.2 }}
-                      className="border-t border-zinc-800/60 bg-zinc-950/40"
+                      transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                      className="border-t border-white/5"
                     >
-                      <div className="p-5 grid grid-cols-1 lg:grid-cols-3 gap-6">
+                      <div className="p-5 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-4">
                         
                         {/* Summary Block */}
-                        <div className="space-y-4">
-                          {/* Weather & Time Widget - same card style as Calorie/Cadenza */}
+                        <div className="lg:col-span-4 flex flex-col gap-4">
+                          
+                          {/* Weather Bento Cell */}
                           {weatherMatch && (
-                            <section aria-labelledby={`weather-heading-${act.id}`} className="space-y-3">
-                              <h5 id={`weather-heading-${act.id}`} className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider flex items-center gap-1.5">
+                            <div className="glass-panel p-5 rounded-[16px] space-y-4">
+                              <h5 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-1.5 font-sans">
                                 <CloudSun aria-hidden="true" className="h-3.5 w-3.5 text-amber-400" />
                                 Meteo & Orario
                               </h5>
-                              <div className="grid grid-cols-2 gap-4 font-mono text-xs" role="group" aria-label="Dettagli meteorologici e orario">
-                                <div className="bg-zinc-900 border border-zinc-800/50 p-4 rounded-lg flex flex-col justify-between">
-                                  <span className="text-[9px] text-zinc-500 flex items-center gap-1.5 uppercase">
-                                    <Clock aria-hidden="true" className="h-3.5 w-3.5 text-zinc-400" />
-                                    Partenza
+                              <div className="grid grid-cols-2 gap-y-4 gap-x-2 font-display">
+                                <div>
+                                  <span className="text-[9px] text-zinc-500 flex items-center gap-1 uppercase tracking-wider font-sans mb-1">
+                                    <Clock aria-hidden="true" className="h-3 w-3" /> Partenza
                                   </span>
-                                  <span className="text-base font-bold text-white block mt-1.5">{departureTime}</span>
+                                  <span className="text-lg text-white block">{departureTime}</span>
                                 </div>
                                 {weatherCond && (
-                                  <div className="bg-zinc-900 border border-zinc-800/50 p-4 rounded-lg flex flex-col justify-between">
-                                    <span className="text-[9px] text-zinc-500 flex items-center gap-1.5 uppercase">
-                                      <CloudSun aria-hidden="true" className="h-3.5 w-3.5 text-amber-400" />
-                                      Condizioni
+                                  <div>
+                                    <span className="text-[9px] text-zinc-500 flex items-center gap-1 uppercase tracking-wider font-sans mb-1">
+                                      <CloudSun aria-hidden="true" className="h-3 w-3" /> Condizioni
                                     </span>
-                                    <span className="text-sm font-bold text-white block mt-1.5 leading-tight">{weatherCond}</span>
+                                    <span className="text-lg text-white block truncate">{weatherCond}</span>
                                   </div>
                                 )}
                                 {tempVal && (
-                                  <div className="bg-zinc-900 border border-zinc-800/50 p-4 rounded-lg flex flex-col justify-between">
-                                    <span className="text-[9px] text-zinc-500 flex items-center gap-1.5 uppercase">
-                                      <Thermometer aria-hidden="true" className="h-3.5 w-3.5 text-orange-400" />
-                                      Temperatura
+                                  <div>
+                                    <span className="text-[9px] text-zinc-500 flex items-center gap-1 uppercase tracking-wider font-sans mb-1">
+                                      <Thermometer aria-hidden="true" className="h-3 w-3" /> Temp
                                     </span>
-                                    <span className="text-base font-bold text-white block mt-1.5">{tempVal}</span>
+                                    <span className="text-lg text-white block">{tempVal}</span>
                                   </div>
                                 )}
                                 {humidityVal && (
-                                  <div className="bg-zinc-900 border border-zinc-800/50 p-4 rounded-lg flex flex-col justify-between">
-                                    <span className="text-[9px] text-zinc-500 flex items-center gap-1.5 uppercase">
-                                      <Droplets aria-hidden="true" className="h-3.5 w-3.5 text-cyan-400" />
-                                      Umidità
+                                  <div>
+                                    <span className="text-[9px] text-zinc-500 flex items-center gap-1 uppercase tracking-wider font-sans mb-1">
+                                      <Droplets aria-hidden="true" className="h-3 w-3" /> Umidità
                                     </span>
-                                    <span className="text-base font-bold text-white block mt-1.5">{humidityVal}</span>
-                                  </div>
-                                )}
-                                {windVal && (
-                                  <div className="bg-zinc-900 border border-zinc-800/50 p-4 rounded-lg col-span-2 flex flex-col justify-between">
-                                    <span className="text-[9px] text-zinc-500 flex items-center gap-1.5 uppercase">
-                                      <Wind aria-hidden="true" className="h-3.5 w-3.5 text-teal-400" />
-                                      Vento
-                                    </span>
-                                    <span className="text-base font-bold text-white block mt-1.5">{windVal}</span>
+                                    <span className="text-lg text-white block">{humidityVal}</span>
                                   </div>
                                 )}
                               </div>
-                            </section>
+                            </div>
                           )}
 
+                          {/* Stats Mini Bento Cells */}
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="glass-panel p-4 rounded-[16px]">
+                              <span className="text-[9px] text-zinc-500 flex items-center gap-1.5 uppercase tracking-widest font-sans mb-1">
+                                <Flame aria-hidden="true" className="h-3.5 w-3.5 text-orange-400" />
+                                Calorie
+                              </span>
+                              <div className="flex items-baseline gap-1">
+                                <span className="text-2xl font-display font-bold text-white">{act.calories}</span>
+                                <span className="text-[10px] text-zinc-500 font-bold uppercase">kcal</span>
+                              </div>
+                            </div>
+                            <div className="glass-panel p-4 rounded-[16px]">
+                              <span className="text-[9px] text-zinc-500 flex items-center gap-1.5 uppercase tracking-widest font-sans mb-1">
+                                <Activity aria-hidden="true" className="h-3.5 w-3.5 text-cyan-400" />
+                                Cadenza
+                              </span>
+                              <div className="flex items-baseline gap-1">
+                                <span className="text-2xl font-display font-bold text-white">{act.avgCadence || '--'}</span>
+                                <span className="text-[10px] text-zinc-500 font-bold uppercase">ppm</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Notes Cell */}
                           {(() => {
                             const isDefaultNote = !cleanNotes || 
                               cleanNotes.trim() === '' || 
@@ -604,100 +617,89 @@ export default function History({ activities, onUploadTcx, isUploading, uploadEr
                             if (isDefaultNote) return null;
 
                             return (
-                              <div>
-                                <h5 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider mb-2">Note della sessione</h5>
-                                <div className="bg-zinc-900 border border-zinc-800/50 rounded-lg p-4 text-xs text-zinc-300 leading-relaxed font-sans">
-                                  <p className="italic">{cleanNotes}</p>
-                                </div>
+                              <div className="glass-panel rounded-[16px] p-5">
+                                <h5 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3 flex items-center gap-1.5 font-sans">
+                                  Note Sessione
+                                </h5>
+                                <p className="text-sm text-zinc-300 leading-relaxed italic">{cleanNotes}</p>
                               </div>
                             );
                           })()}
-
-                          <div className="grid grid-cols-2 gap-4 font-mono text-xs" role="group" aria-label="Statistiche aggiuntive">
-                            <div className="bg-zinc-900 border border-zinc-800/50 p-4 rounded-lg flex flex-col justify-between">
-                              <span className="text-[9px] text-zinc-500 flex items-center gap-1.5 uppercase">
-                                <Flame aria-hidden="true" className="h-3.5 w-3.5 text-orange-400" />
-                                Calorie
-                              </span>
-                              <span className="text-base font-bold text-white block mt-1.5">{act.calories} <span className="text-xs font-normal text-zinc-500">kcal</span></span>
-                            </div>
-                            <div className="bg-zinc-900 border border-zinc-800/50 p-4 rounded-lg flex flex-col justify-between">
-                              <span className="text-[9px] text-zinc-500 flex items-center gap-1.5 uppercase">
-                                <Activity aria-hidden="true" className="h-3.5 w-3.5 text-cyan-400" />
-                                Cadenza
-                              </span>
-                              <span className="text-base font-bold text-white block mt-1.5">{act.avgCadence || '--'} <span className="text-xs font-normal text-zinc-500">ppm</span></span>
-                            </div>
-                          </div>
                         </div>
 
-                        {/* Splits Table Block */}
-                        <div className="lg:col-span-2 space-y-3">
-                          <div className="flex items-center justify-between">
-                            <h5 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider flex items-center gap-1">
-                              <Layers className="h-3.5 w-3.5 text-lime-400" />
-                              Intervalli di Giro (Lap)
-                            </h5>
-                          </div>
-
-                          <div className="overflow-hidden border border-zinc-800/80 bg-zinc-900/30 rounded-lg">
-                            <table className="w-full text-left border-collapse text-xs">
-                              <thead>
-                                <tr className="border-b border-zinc-800 text-[10px] text-zinc-500 uppercase font-medium bg-zinc-900/60">
-                                  <th className="py-2 px-3 text-center w-12">Giro</th>
-                                  <th className="py-2 px-3">Distanza</th>
-                                  <th className="py-2 px-3">Tempo</th>
-                                  <th className="py-2 px-3">Passo</th>
-                                  <th className="py-2 px-3">Battiti Medi</th>
-                                  <th className="py-2 px-3">Cadenza</th>
-                                </tr>
-                              </thead>
-                              <tbody className="font-mono text-zinc-300">
-                                {act.laps && act.laps.map((lap) => {
-                                  const paceSeconds = lap.distanceKm > 0 ? (lap.durationSec / lap.distanceKm) : 0;
-                                  let lapPaceStr = '--:--';
-                                  if (paceSeconds > 0) {
-                                    const min = Math.floor(paceSeconds / 60);
-                                    const sec = Math.round(paceSeconds % 60);
-                                    lapPaceStr = `${min.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
-                                  }
-
-                                  return (
-                                    <tr key={lap.lapIndex} className="border-b border-zinc-800/40 hover:bg-zinc-900/40 last:border-0 transition-colors">
-                                      <td className="py-2 px-3 text-center font-bold text-zinc-500 bg-zinc-900/20">{lap.lapIndex}</td>
-                                      <td className="py-2 px-3 font-semibold text-white">{lap.distanceKm.toFixed(2)} km</td>
-                                      <td className="py-2 px-3 text-zinc-400">{formatDuration(lap.durationSec)}</td>
-                                      <td className="py-2 px-3 text-cyan-400 font-semibold">{lapPaceStr}/km</td>
-                                      <td className="py-2 px-3 text-rose-400 font-semibold">{lap.avgHeartRate ? `${lap.avgHeartRate} bpm` : '--'}</td>
-                                      <td className="py-2 px-3 text-zinc-400">{lap.avgCadence ? `${lap.avgCadence} ppm` : '--'}</td>
-                                    </tr>
-                                  );
-                                })}
-
-                                {(!act.laps || act.laps.length === 0) && (
-                                  <tr>
-                                    <td colSpan={6} className="py-8 text-center text-zinc-500 italic">
-                                      Nessun dettaglio giro registrato nel file TCX.
-                                    </td>
+                        {/* Splits & Laps Block */}
+                        <div className="lg:col-span-8 flex flex-col gap-4">
+                          
+                          <div className="glass-panel rounded-[16px] overflow-hidden flex-1 flex flex-col">
+                            <div className="p-5 border-b border-white/5">
+                              <h5 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-1.5 font-sans">
+                                <Layers className="h-3.5 w-3.5 text-lime-400" />
+                                Intervalli Giro (Lap)
+                              </h5>
+                            </div>
+                            
+                            <div className="overflow-x-auto flex-1">
+                              <table className="w-full text-left border-collapse text-sm whitespace-nowrap">
+                                <thead>
+                                  <tr className="border-b border-white/5 text-[10px] text-zinc-500 uppercase font-sans tracking-wider bg-white/5">
+                                    <th className="py-3 px-4 text-center font-bold">Lap</th>
+                                    <th className="py-3 px-4 font-bold">Dist</th>
+                                    <th className="py-3 px-4 font-bold">Tempo</th>
+                                    <th className="py-3 px-4 font-bold">Passo</th>
+                                    <th className="py-3 px-4 font-bold">BPM</th>
+                                    <th className="py-3 px-4 font-bold">PPM</th>
                                   </tr>
-                                )}
-                              </tbody>
-                            </table>
+                                </thead>
+                                <tbody className="font-mono text-zinc-300">
+                                  {act.laps && act.laps.map((lap) => {
+                                    const paceSeconds = lap.distanceKm > 0 ? (lap.durationSec / lap.distanceKm) : 0;
+                                    let lapPaceStr = '--:--';
+                                    if (paceSeconds > 0) {
+                                      const min = Math.floor(paceSeconds / 60);
+                                      const sec = Math.round(paceSeconds % 60);
+                                      lapPaceStr = `${min.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
+                                    }
+
+                                    return (
+                                      <tr key={lap.lapIndex} className="border-b border-white/5 hover:bg-white/5 last:border-0 transition-colors">
+                                        <td className="py-3 px-4 text-center font-bold text-zinc-500">{lap.lapIndex}</td>
+                                        <td className="py-3 px-4 font-bold text-white">{lap.distanceKm.toFixed(2)} km</td>
+                                        <td className="py-3 px-4 text-zinc-400">{formatDuration(lap.durationSec)}</td>
+                                        <td className="py-3 px-4 text-lime-400 font-bold">{lapPaceStr}</td>
+                                        <td className="py-3 px-4 text-rose-400 font-bold">{lap.avgHeartRate || '--'}</td>
+                                        <td className="py-3 px-4 text-cyan-400">{lap.avgCadence || '--'}</td>
+                                      </tr>
+                                    );
+                                  })}
+
+                                  {(!act.laps || act.laps.length === 0) && (
+                                    <tr>
+                                      <td colSpan={6} className="py-12 text-center text-zinc-500 italic text-xs">
+                                        Nessun dettaglio giro registrato nel file TCX.
+                                      </td>
+                                    </tr>
+                                  )}
+                                </tbody>
+                              </table>
+                            </div>
                           </div>
                         </div>
+
                       </div>
 
-                      {/* Metriche GPS e Grafici */}
+                      {/* GPS Charts Full-Width Bento Cell */}
                       {act.trackpoints && act.trackpoints.length > 0 && (
-                        <div className="border-t border-zinc-800/60 p-5 bg-zinc-950/20">
-                          <h5 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider mb-4 flex items-center gap-1.5">
-                            <Activity className="h-3.5 w-3.5 text-lime-400" />
-                            Metriche GPS e Grafici di Sessione
-                          </h5>
-                          <ActivityCharts
-                            trackpoints={act.trackpoints}
-                            distanceKm={act.distanceKm}
-                          />
+                        <div className="p-5 sm:p-6 pt-0">
+                          <div className="glass-panel rounded-[16px] p-5">
+                            <h5 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-5 flex items-center gap-1.5 font-sans">
+                              <Activity className="h-3.5 w-3.5 text-lime-400" />
+                              Metriche GPS
+                            </h5>
+                            <ActivityCharts
+                              trackpoints={act.trackpoints}
+                              distanceKm={act.distanceKm}
+                            />
+                          </div>
                         </div>
                       )}
 
