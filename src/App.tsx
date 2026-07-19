@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Calendar, Sparkles, Settings, X, Home, TrendingUp, Sun, Moon } from 'lucide-react';
+import { Calendar, Sparkles, Home, TrendingUp, Sun, Moon } from 'lucide-react';
 import { Activity as ActivityType, ChatMessage, RunningStats } from './types.js';
 import Dashboard from './components/Dashboard.tsx';
 import Chat from './components/Chat.tsx';
@@ -20,7 +20,6 @@ export default function App() {
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
     return (localStorage.getItem('theme') as 'dark' | 'light') || 'light';
   });
-  const [showSettings, setShowSettings] = useState(false);
 
   useEffect(() => {
     if (theme === 'light') {
@@ -140,71 +139,6 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[var(--window-bg)] text-[var(--text-primary)] transition-colors duration-300 font-sans" id="app-root-container">
 
-      {/* Settings Button (Top Right) */}
-      <div className="fixed top-4 right-4 z-50">
-        <button 
-          onClick={() => setShowSettings(!showSettings)}
-          className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors shadow-sm ${
-            showSettings ? 'bg-primary text-[var(--window-bg)] dark:bg-white dark:text-black' : 'mac-popover text-secondary hover:text-primary'
-          }`}
-        >
-          <Settings className="w-5 h-5" />
-        </button>
-
-        {/* Settings Popover */}
-        <AnimatePresence>
-          {showSettings && (
-            <motion.div
-              initial={{ opacity: 0, y: 10, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 10, scale: 0.95 }}
-              transition={{ duration: 0.15 }}
-              className="absolute top-12 right-0 w-72 mac-popover p-4 z-50 rounded-2xl border border-subtle shadow-popover"
-            >
-              <div className="flex items-center justify-between mb-4 border-b border-subtle pb-3">
-                <h3 className="font-medium text-sm text-primary">Settings</h3>
-                <button onClick={() => setShowSettings(false)} className="text-secondary hover:text-primary">
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              <div className="space-y-4">
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-primary flex items-center gap-2">Theme</span>
-                  </div>
-                  <div className="segmented-control w-full flex">
-                    <div 
-                      onClick={() => setTheme('light')}
-                      className={`flex-1 text-center segmented-item ${theme === 'light' ? 'active' : ''}`}
-                    >
-                      Bright
-                    </div>
-                    <div 
-                      onClick={() => setTheme('dark')}
-                      className={`flex-1 text-center segmented-item ${theme === 'dark' ? 'active' : ''}`}
-                    >
-                      Dark
-                    </div>
-                  </div>
-                </div>
-
-                <div className="border-t border-subtle pt-4">
-                  <div className="segmented-control w-full flex">
-                     <div 
-                      onClick={() => { setIsAdminOpen(true); setShowSettings(false); }}
-                      className="flex-1 text-center segmented-item text-secondary hover:text-primary"
-                    >
-                      Unlock Admin
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-
       {/* Main Content Area */}
       <main className="w-full max-w-[1200px] mx-auto min-h-screen px-4 sm:px-8 py-8 pb-32">
         <AnimatePresence mode="wait">
@@ -225,6 +159,7 @@ export default function App() {
                 stats={stats}
                 activities={activities}
                 onNavigateToHistory={() => setActiveTab('history')}
+                onSecretUnlock={() => setIsAdminOpen(true)}
               />
             ) : activeTab === 'chat' ? (
               <Chat

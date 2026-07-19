@@ -125,7 +125,7 @@ export default function History({ activities, onUploadTcx, isUploading, uploadEr
     <div className="space-y-12 pb-8" id="history-tab">
 
       <div className="border-b border-subtle pb-5 flex items-center justify-between">
-        <h1 className="text-4xl sm:text-5xl font-black tracking-tighter text-primary">History</h1>
+        <h1 className="text-3xl font-bold tracking-tight text-primary">History</h1>
       </div>
 
       {/* Hero: Latest Activity */}
@@ -156,7 +156,7 @@ export default function History({ activities, onUploadTcx, isUploading, uploadEr
               </div>
             )}
             <div className="px-6 pt-5 pb-5">
-              <div className="grid grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 {[
                   { label: 'Distanza', value: latestActivity.distanceKm.toFixed(1), unit: 'km', cls: 'text-accent-lime text-3xl sm:text-4xl' },
                   { label: 'Passo', value: latestActivity.avgPace, unit: '/km', cls: 'text-primary text-2xl sm:text-3xl' },
