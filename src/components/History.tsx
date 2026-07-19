@@ -361,7 +361,7 @@ export default function History({ activities, onUploadTcx, isUploading, uploadEr
                     dayObj.activity ? (
                       <button
                         onClick={() => onActivitySelect(dayObj.activity!.id)}
-                        className="w-full h-full rounded-md bg-accent-lime text-[#111] font-bold hover:opacity-80 transition-opacity flex items-center justify-center text-[10px] font-mono"
+                        className="w-full h-full rounded-md bg-[#CCFF00] text-black font-extrabold shadow-[0_0_8px_rgba(204,255,0,0.4)] hover:opacity-90 transition-opacity flex items-center justify-center text-[10px] font-mono"
                         title={dayObj.activity.name}
                       >
                         {dayObj.day}

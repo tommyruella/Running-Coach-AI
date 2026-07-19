@@ -257,39 +257,48 @@ export default function App() {
       </main>
 
       {/* Floating Bottom Navigation */}
-      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[1500] w-[90%] max-w-[340px]">
-        <nav className="relative flex items-center justify-between mac-popover px-2 h-14 sm:h-16 transition-all duration-300 rounded-[32px] border border-subtle shadow-[0_10px_30px_-5px_rgba(0,0,0,0.2)] dark:shadow-[0_10px_30px_-5px_rgba(0,0,0,0.8)]">
-          {[
-            { id: 'history', icon: Calendar },
-            { id: 'dashboard', icon: TrendingUp },
-            { id: 'chat', icon: Sparkles },
-            { id: 'theme', icon: theme === 'dark' ? Sun : Moon },
-          ].map((item) => {
-            const Icon = item.icon;
-            const isActive = item.id === activeTab || (item.id === 'history' && activeTab === 'activity_detail');
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[1500] w-[90%] max-w-[360px]">
+        <nav className="relative flex items-center justify-between mac-popover px-4 h-16 transition-all duration-300 rounded-full border border-subtle shadow-[0_10px_30px_-5px_rgba(0,0,0,0.3)] dark:shadow-[0_10px_30px_-5px_rgba(0,0,0,0.8)]">
+          {/* Left Navigation Buttons */}
+          <div className="flex items-center gap-2 flex-1 justify-around">
+            {[
+              { id: 'chat', icon: Sparkles },
+              { id: 'dashboard', icon: Home },
+              { id: 'history', icon: Calendar },
+            ].map((item) => {
+              const Icon = item.icon;
+              const isActive = item.id === activeTab || (item.id === 'history' && activeTab === 'activity_detail');
 
-            return (
-              <button
-                key={item.id}
-                onClick={() => {
-                  if (item.id === 'theme') {
-                    setTheme(theme === 'dark' ? 'light' : 'dark');
-                  } else {
-                    setActiveTab(item.id as any);
-                  }
-                }}
-                className="relative flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 cursor-pointer outline-none tap-highlight-transparent"
-              >
-                {isActive && item.id !== 'theme' && (
-                  <motion.div
-                    layoutId="mobile-nav"
-                    className="absolute inset-1 sm:inset-1.5 bg-surface-inset rounded-full"
-                  />
-                )}
-                <Icon className={`relative z-10 w-5 h-5 sm:w-6 sm:h-6 ${isActive && item.id !== 'theme' ? 'text-primary' : item.id === 'chat' ? 'text-accent-lime' : item.id === 'theme' ? 'text-accent-lime' : 'text-secondary hover:text-primary transition-colors'}`} strokeWidth={isActive ? 2.5 : 2} />
-              </button>
-            );
-          })}
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveTab(item.id as any)}
+                  className={`relative flex items-center justify-center transition-all duration-300 rounded-full ${
+                    isActive 
+                      ? 'w-14 h-14 bg-[#CCFF00] text-black shadow-[0_0_15px_rgba(204,255,0,0.6)] -translate-y-4 sm:-translate-y-5 scale-110 z-20 font-bold' 
+                      : 'w-12 h-12 text-secondary hover:text-primary'
+                  }`}
+                  style={{ WebkitTapHighlightColor: 'transparent' }}
+                >
+                  <Icon className="w-5 h-5 sm:w-6 sm:h-6" strokeWidth={isActive ? 2.5 : 2} />
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Divider */}
+          <div className="h-8 w-[1px] bg-subtle mx-3 self-center opacity-30" />
+
+          {/* Right Theme Button */}
+          <div className="flex items-center justify-center pl-2 pr-1">
+            <button
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              className="w-12 h-12 flex items-center justify-center text-[#CCFF00] hover:scale-110 transition-transform cursor-pointer"
+              style={{ WebkitTapHighlightColor: 'transparent' }}
+            >
+              {theme === 'dark' ? <Sun className="w-5 h-5 sm:w-6 sm:h-6" /> : <Moon className="w-5 h-5 sm:w-6 sm:h-6" />}
+            </button>
+          </div>
         </nav>
       </div>
 
