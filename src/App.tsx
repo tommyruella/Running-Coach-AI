@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Calendar, Sparkles, Settings, X, Home } from 'lucide-react';
+import { Calendar, Sparkles, Settings, X, Home, TrendingUp, Sun, Moon } from 'lucide-react';
 import { Activity as ActivityType, ChatMessage, RunningStats } from './types.js';
 import Dashboard from './components/Dashboard.tsx';
 import Chat from './components/Chat.tsx';
@@ -257,12 +257,13 @@ export default function App() {
       </main>
 
       {/* Floating Bottom Navigation */}
-      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[1500] w-[90%] max-w-[320px] sm:max-w-[350px]">
-        <nav className="relative flex items-center justify-around mac-popover px-2 h-16 transition-all duration-300 rounded-full border border-subtle shadow-[0_10px_30px_-5px_rgba(0,0,0,0.4)] dark:shadow-[0_10px_30px_-5px_rgba(0,0,0,0.8)]">
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[1500] w-[90%] max-w-[340px]">
+        <nav className="relative flex items-center justify-between mac-popover px-2 h-14 sm:h-16 transition-all duration-300 rounded-[32px] border border-subtle shadow-[0_10px_30px_-5px_rgba(0,0,0,0.2)] dark:shadow-[0_10px_30px_-5px_rgba(0,0,0,0.8)]">
           {[
-            { id: 'chat', icon: Sparkles, label: 'Coach' },
-            { id: 'dashboard', icon: Home, label: 'Home' },
-            { id: 'history', icon: Calendar, label: 'Storico' },
+            { id: 'history', icon: Calendar },
+            { id: 'dashboard', icon: TrendingUp },
+            { id: 'chat', icon: Sparkles },
+            { id: 'theme', icon: theme === 'dark' ? Sun : Moon },
           ].map((item) => {
             const Icon = item.icon;
             const isActive = item.id === activeTab || (item.id === 'history' && activeTab === 'activity_detail');
@@ -270,16 +271,22 @@ export default function App() {
             return (
               <button
                 key={item.id}
-                onClick={() => setActiveTab(item.id as any)}
-                className="relative flex items-center justify-center w-14 h-14 cursor-pointer outline-none tap-highlight-transparent"
+                onClick={() => {
+                  if (item.id === 'theme') {
+                    setTheme(theme === 'dark' ? 'light' : 'dark');
+                  } else {
+                    setActiveTab(item.id as any);
+                  }
+                }}
+                className="relative flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 cursor-pointer outline-none tap-highlight-transparent"
               >
-                {isActive && (
+                {isActive && item.id !== 'theme' && (
                   <motion.div
                     layoutId="mobile-nav"
-                    className="absolute inset-2 bg-surface-inset rounded-full shadow-sm"
+                    className="absolute inset-1 sm:inset-1.5 bg-surface-inset rounded-full"
                   />
                 )}
-                <Icon className={`relative z-10 w-5 h-5 ${isActive ? 'text-primary' : 'text-secondary hover:text-primary transition-colors'}`} />
+                <Icon className={`relative z-10 w-5 h-5 sm:w-6 sm:h-6 ${isActive && item.id !== 'theme' ? 'text-primary' : item.id === 'chat' ? 'text-accent-lime' : item.id === 'theme' ? 'text-accent-lime' : 'text-secondary hover:text-primary transition-colors'}`} strokeWidth={isActive ? 2.5 : 2} />
               </button>
             );
           })}

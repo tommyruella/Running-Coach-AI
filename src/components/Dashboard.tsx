@@ -279,11 +279,11 @@ export default function Dashboard({ activities, onNavigateToHistory, onSecretUnl
       <div className="flex flex-col lg:flex-row gap-6">
         
         {/* Left: Streak & Title */}
-        <div className="flex-1 flex flex-col gap-6">
-          <div className="flex items-center justify-between mb-2">
+        <div className="flex-1 flex flex-col gap-4">
+          <div className="flex items-center justify-between">
             <h1 
               onClick={handleTitleTap}
-              className="text-4xl sm:text-5xl font-black tracking-tighter text-primary select-none"
+              className="text-3xl font-bold tracking-tight text-primary select-none"
             >
               Overview
             </h1>

@@ -37,7 +37,7 @@ export default function Chat({ chatHistory, onSendMessage, onClearHistory, isSen
   };
 
   return (
-    <div className="flex flex-col w-full h-full min-h-[70vh] clean-panel overflow-hidden" id="chat-container">
+    <div className="flex flex-col w-full h-[calc(100vh-160px)] clean-panel overflow-hidden" id="chat-container">
       
       {/* Messages Scroll Area */}
       <div className="flex-1 overflow-y-auto p-5 space-y-6 bg-[var(--app-bg)]" id="chat-messages-container">
