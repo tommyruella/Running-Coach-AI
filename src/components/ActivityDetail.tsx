@@ -26,9 +26,6 @@ export default function ActivityDetail({ activity, onBack }: ActivityDetailProps
   const dateStr = new Date(activity.date).toLocaleDateString('it-IT', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
   });
-  const timeStr = new Date(activity.date).toLocaleTimeString('it-IT', {
-    hour: '2-digit', minute: '2-digit'
-  });
 
   const weatherRegex = /^\[Partenza ore ([^|\]]+)(?: \| Condizioni: ([^,]+), Temp: ([^,]+), Umidità: ([^,]+), Vento: ([^\]]+))?\]/;
   const weatherMatch = activity.notes ? activity.notes.match(weatherRegex) : null;
@@ -62,6 +59,21 @@ export default function ActivityDetail({ activity, onBack }: ActivityDetailProps
   const hasGps = activity.trackpoints && activity.trackpoints.length > 0 &&
     activity.trackpoints.some(tp => tp.latitude !== undefined);
 
+  const metrics = [
+    { label: 'Distanza', value: activity.distanceKm.toFixed(2), unit: 'km', accent: 'text-accent-lime' },
+    { label: 'Passo', value: activity.avgPace, unit: '/km', accent: '' },
+    { label: 'Durata', value: `${activity.durationMin}m`, unit: '', accent: '' },
+    { label: 'BPM', value: activity.avgHeartRate ? String(activity.avgHeartRate) : '--', unit: '', accent: 'text-accent-rose' },
+  ];
+
+  const secondaryMetrics = [
+    activity.calories != null && { label: 'Calorie', value: String(activity.calories), unit: 'kcal', icon: <Flame className="h-3.5 w-3.5 text-accent-amber" />, accent: '' },
+    activity.avgCadence != null && { label: 'Cadenza', value: String(activity.avgCadence), unit: 'ppm', icon: <ActivityIcon className="h-3.5 w-3.5 text-accent-cyan" />, accent: 'text-accent-cyan' },
+    tempVal && { label: 'Temperatura', value: tempVal, unit: '', icon: <Thermometer className="h-3.5 w-3.5 text-accent-amber" />, accent: '' },
+    humidityVal && { label: 'Umidità', value: humidityVal, unit: '', icon: <Droplets className="h-3.5 w-3.5 text-accent-blue" />, accent: '' },
+    weatherCond && { label: 'Meteo', value: weatherCond, unit: '', icon: <CloudSun className="h-3.5 w-3.5 text-accent-amber" />, accent: '' },
+  ].filter(Boolean) as Array<{ label: string; value: string; unit: string; icon: React.ReactNode; accent: string }>;
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -71,59 +83,66 @@ export default function ActivityDetail({ activity, onBack }: ActivityDetailProps
       className="pb-16"
       id="activity-detail-page"
     >
-      {/* ── Top Nav ─────────────────────────────────────────── */}
-      <div className="flex items-start gap-4 mb-6">
+      {/* Top Nav */}
+      <div className="flex items-start gap-4 mb-8">
         <button
           onClick={onBack}
-          className="h-10 w-10 shrink-0 flex items-center justify-center bg-white/5 hover:bg-white/10 text-white rounded-full transition-colors cursor-pointer mt-1"
+          className="h-10 w-10 shrink-0 flex items-center justify-center clean-panel text-primary hover:bg-surface-inset rounded-xl transition-all cursor-pointer mt-1 shadow-sm"
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
         <div className="min-w-0">
-          <h1 className="text-2xl sm:text-3xl font-display font-black text-white uppercase tracking-wide truncate leading-tight">
+          <h1 className="text-3xl sm:text-4xl font-display font-black text-primary tracking-tight truncate leading-tight">
             {activity.name}
           </h1>
-          <p className="text-xs text-zinc-500 font-medium flex flex-wrap items-center gap-2 mt-1 uppercase tracking-wider">
+          <p className="text-xs text-secondary flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 font-medium tracking-wide">
             <span>{dateStr}</span>
-            {departureTime && <><span className="text-zinc-700">·</span><span className="flex items-center gap-1"><Clock className="h-3 w-3" />{departureTime}</span></>}
-            {activity.deviceModel && <><span className="text-zinc-700">·</span><span className="flex items-center gap-1 text-lime-400/70"><Watch className="h-3 w-3" />{activity.deviceModel}</span></>}
+            {departureTime && (
+              <span className="flex items-center gap-1">
+                <Clock className="h-3 w-3" />
+                {departureTime}
+              </span>
+            )}
+            {activity.deviceModel && (
+              <span className="flex items-center gap-1 text-primary">
+                <Watch className="h-3 w-3" />
+                {activity.deviceModel}
+              </span>
+            )}
           </p>
         </div>
       </div>
 
-      {/* ── KEY METRICS ROW — always at top ──────────────────── */}
+      {/* Primary Metrics Strip */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-        {[
-          { label: 'Distanza', value: activity.distanceKm.toFixed(2), unit: 'km', color: 'text-lime-400' },
-          { label: 'Passo', value: activity.avgPace, unit: '/km', color: 'text-white' },
-          { label: 'Durata', value: `${activity.durationMin}m`, unit: '', color: 'text-white' },
-          { label: 'BPM', value: activity.avgHeartRate ? String(activity.avgHeartRate) : '--', unit: '', color: 'text-rose-400' },
-        ].map(m => (
-          <div key={m.label} className="px-4 py-4 rounded-[20px] bg-zinc-950/80 border border-white/5">
-            <span className="text-[9px] text-zinc-500 uppercase tracking-widest font-sans block mb-2">{m.label}</span>
+        {metrics.map(m => (
+          <div key={m.label} className="clean-panel px-5 py-4">
+            <span className="text-[10px] text-muted uppercase tracking-widest font-sans block mb-2 font-medium">{m.label}</span>
             <div className="flex items-end gap-1">
-              <span className={`text-2xl sm:text-3xl font-display font-bold leading-none tracking-tighter ${m.color}`}>{m.value}</span>
-              {m.unit && <span className="text-[10px] font-bold uppercase text-zinc-600 mb-0.5">{m.unit}</span>}
+              <span className={`text-2xl sm:text-3xl font-display font-bold leading-none tracking-tighter ${m.accent || 'text-primary'}`}>
+                {m.value}
+              </span>
+              {m.unit && <span className="text-[10px] font-bold uppercase text-muted mb-0.5">{m.unit}</span>}
             </div>
           </div>
         ))}
       </div>
 
-      {/* ── MAP — full width, no card wrapper ────────────────── */}
+      {/* Map */}
       {hasGps && (
-        <div className="w-full rounded-[24px] overflow-hidden mb-6" style={{ height: 420 }}>
+        <div className="w-full rounded-[16px] overflow-hidden mb-6 border border-subtle shadow-sm" style={{ height: 400 }}>
           <ActivityCharts
             trackpoints={activity.trackpoints!}
             distanceKm={activity.distanceKm}
-            mapHeight={420}
+            mapHeight={400}
             compact={true}
           />
         </div>
       )}
 
-      {/* ── CHARTS — flat, directly on the page ──────────────── */}
+      {/* Charts Panel */}
       {activity.trackpoints && activity.trackpoints.length > 0 && (
-        <div className="rounded-[24px] bg-zinc-950/60 border border-white/5 px-4 py-6 mb-6 overflow-hidden">
+        <div className="clean-panel px-2 pt-2 pb-6 mb-6 overflow-hidden">
           <ActivityCharts
             trackpoints={activity.trackpoints}
             distanceKm={activity.distanceKm}
@@ -133,113 +152,77 @@ export default function ActivityDetail({ activity, onBack }: ActivityDetailProps
         </div>
       )}
 
-      {/* ── SECONDARY ROW: Weather + Extra Stats ─────────────── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-        {activity.calories != null && (
-          <div className="px-4 py-4 rounded-[20px] bg-zinc-950/80 border border-white/5">
-            <span className="text-[9px] text-zinc-500 uppercase tracking-widest font-sans flex items-center gap-1 mb-2">
-              <Flame className="h-3.5 w-3.5 text-orange-400" /> Calorie
-            </span>
-            <div className="flex items-end gap-1">
-              <span className="text-2xl font-display font-bold text-white">{activity.calories}</span>
-              <span className="text-[10px] font-bold uppercase text-zinc-600 mb-0.5">kcal</span>
+      {/* Secondary Metrics */}
+      {secondaryMetrics.length > 0 && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 mb-6">
+          {secondaryMetrics.map(m => (
+            <div key={m.label} className="clean-panel px-4 py-4">
+              <span className="text-[10px] text-muted uppercase tracking-widest font-sans flex items-center gap-1.5 mb-2 font-medium">
+                {m.icon} {m.label}
+              </span>
+              <div className="flex items-end gap-1">
+                <span className={`text-xl font-display font-bold leading-none tracking-tight ${m.accent || 'text-primary'}`}>{m.value}</span>
+                {m.unit && <span className="text-[10px] font-bold uppercase text-muted mb-0.5">{m.unit}</span>}
+              </div>
             </div>
-          </div>
-        )}
-        {activity.avgCadence != null && (
-          <div className="px-4 py-4 rounded-[20px] bg-zinc-950/80 border border-white/5">
-            <span className="text-[9px] text-zinc-500 uppercase tracking-widest font-sans flex items-center gap-1 mb-2">
-              <ActivityIcon className="h-3.5 w-3.5 text-cyan-400" /> Cadenza
-            </span>
-            <div className="flex items-end gap-1">
-              <span className="text-2xl font-display font-bold text-cyan-400">{activity.avgCadence}</span>
-              <span className="text-[10px] font-bold uppercase text-zinc-600 mb-0.5">ppm</span>
-            </div>
-          </div>
-        )}
-        {tempVal && (
-          <div className="px-4 py-4 rounded-[20px] bg-zinc-950/80 border border-white/5">
-            <span className="text-[9px] text-zinc-500 uppercase tracking-widest font-sans flex items-center gap-1 mb-2">
-              <Thermometer className="h-3.5 w-3.5 text-amber-400" /> Temperatura
-            </span>
-            <span className="text-2xl font-display font-bold text-white">{tempVal}</span>
-          </div>
-        )}
-        {humidityVal && (
-          <div className="px-4 py-4 rounded-[20px] bg-zinc-950/80 border border-white/5">
-            <span className="text-[9px] text-zinc-500 uppercase tracking-widest font-sans flex items-center gap-1 mb-2">
-              <Droplets className="h-3.5 w-3.5 text-blue-400" /> Umidità
-            </span>
-            <span className="text-2xl font-display font-bold text-white">{humidityVal}</span>
-          </div>
-        )}
-        {weatherCond && (
-          <div className="px-4 py-4 rounded-[20px] bg-zinc-950/80 border border-white/5 col-span-2 sm:col-span-1">
-            <span className="text-[9px] text-zinc-500 uppercase tracking-widest font-sans flex items-center gap-1 mb-2">
-              <CloudSun className="h-3.5 w-3.5 text-amber-400" /> Meteo
-            </span>
-            <span className="text-lg font-display font-bold text-white">{weatherCond}</span>
-          </div>
-        )}
-      </div>
-
-      {/* ── NOTES ───────────────────────────────────────────── */}
-      {!isDefaultNote && (
-        <div className="px-5 py-4 rounded-[20px] bg-zinc-950/80 border border-white/5 mb-6">
-          <span className="text-[9px] text-zinc-500 uppercase tracking-widest font-sans block mb-2">Note Sessione</span>
-          <p className="text-sm text-zinc-300 leading-relaxed italic">{cleanNotes}</p>
+          ))}
         </div>
       )}
 
-      {/* ── LAPS — collapsible ──────────────────────────────── */}
+      {/* Notes */}
+      {!isDefaultNote && (
+        <div className="clean-panel px-5 py-4 mb-6">
+          <span className="text-[10px] text-muted uppercase tracking-widest font-sans block mb-2 font-medium">Note Sessione</span>
+          <p className="text-sm text-secondary leading-relaxed italic">{cleanNotes}</p>
+        </div>
+      )}
+
+      {/* Laps */}
       {activity.laps && activity.laps.length > 0 && (
-        <div className="rounded-[24px] bg-zinc-950/60 border border-white/5 overflow-hidden">
+        <div className="clean-panel overflow-hidden">
           <button
             onClick={() => setLapsOpen(o => !o)}
-            className="w-full flex items-center justify-between px-6 py-4 hover:bg-white/5 transition-colors cursor-pointer"
+            className="w-full flex items-center justify-between px-6 py-4 hover:bg-surface-inset transition-colors cursor-pointer"
           >
-            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
-              Giri · {activity.laps.length} lap{activity.laps.length > 1 ? 's' : ''}
+            <span className="text-[10px] font-bold text-muted uppercase tracking-widest flex items-center gap-2">
+              Giri
+              <span className="text-accent-lime font-mono">× {activity.laps.length}</span>
             </span>
-            {lapsOpen ? <ChevronUp className="h-4 w-4 text-zinc-500" /> : <ChevronDown className="h-4 w-4 text-zinc-500" />}
+            {lapsOpen
+              ? <ChevronUp className="h-4 w-4 text-muted" />
+              : <ChevronDown className="h-4 w-4 text-muted" />
+            }
           </button>
 
           {lapsOpen && (
             <motion.div
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.25 }}
-              className="overflow-x-auto border-t border-white/5"
+              transition={{ duration: 0.22 }}
+              className="overflow-x-auto border-t border-subtle"
             >
               <table className="w-full text-left text-sm whitespace-nowrap">
                 <thead>
-                  <tr className="text-[9px] text-zinc-500 uppercase tracking-widest bg-white/[0.03]">
-                    <th className="py-3 px-5 font-bold">#</th>
-                    <th className="py-3 px-5 font-bold">Dist</th>
-                    <th className="py-3 px-5 font-bold">Tempo</th>
-                    <th className="py-3 px-5 font-bold">Passo</th>
-                    <th className="py-3 px-5 font-bold">BPM</th>
-                    <th className="py-3 px-5 font-bold">PPM</th>
+                  <tr className="text-[9px] text-muted uppercase tracking-widest bg-surface-inset">
+                    {['#', 'Dist', 'Tempo', 'Passo', 'BPM', 'PPM'].map(h => (
+                      <th key={h} className="py-3.5 px-5 font-bold">{h}</th>
+                    ))}
                   </tr>
                 </thead>
-                <tbody className="font-mono text-zinc-300">
+                <tbody className="font-mono text-secondary">
                   {activity.laps.map(lap => {
-                    const paceSeconds = lap.distanceKm > 0 ? (lap.durationSec / lap.distanceKm) : 0;
-                    let lapPaceStr = '--:--';
-                    if (paceSeconds > 0) {
-                      const min = Math.floor(paceSeconds / 60);
-                      const sec = Math.round(paceSeconds % 60);
-                      lapPaceStr = `${min}:${sec.toString().padStart(2, '0')}`;
-                    }
+                    const ps = lap.distanceKm > 0 ? (lap.durationSec / lap.distanceKm) : 0;
+                    const lapPace = ps > 0
+                      ? `${Math.floor(ps / 60)}:${Math.round(ps % 60).toString().padStart(2, '0')}`
+                      : '--:--';
                     return (
-                      <tr key={lap.lapIndex} className="border-t border-white/5 hover:bg-white/[0.03] transition-colors last:border-b-0">
-                        <td className="py-3.5 px-5 text-zinc-600 font-bold">{lap.lapIndex}</td>
-                        <td className="py-3.5 px-5 font-bold text-white">{lap.distanceKm.toFixed(2)} km</td>
-                        <td className="py-3.5 px-5 text-zinc-400">{formatDuration(lap.durationSec)}</td>
-                        <td className="py-3.5 px-5 text-lime-400 font-bold">{lapPaceStr}</td>
-                        <td className="py-3.5 px-5 text-rose-400 font-bold">{lap.avgHeartRate || '--'}</td>
-                        <td className="py-3.5 px-5 text-cyan-400">{lap.avgCadence || '--'}</td>
+                      <tr key={lap.lapIndex} className="border-t border-subtle hover:bg-surface-inset transition-colors">
+                        <td className="py-3.5 px-5 text-muted font-bold">{lap.lapIndex}</td>
+                        <td className="py-3.5 px-5 font-bold text-primary">{lap.distanceKm.toFixed(2)} km</td>
+                        <td className="py-3.5 px-5">{formatDuration(lap.durationSec)}</td>
+                        <td className="py-3.5 px-5 text-accent-lime font-bold">{lapPace}</td>
+                        <td className="py-3.5 px-5 text-accent-rose font-bold">{lap.avgHeartRate || '--'}</td>
+                        <td className="py-3.5 px-5 text-accent-cyan">{lap.avgCadence || '--'}</td>
                       </tr>
                     );
                   })}

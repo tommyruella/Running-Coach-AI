@@ -37,10 +37,10 @@ export default function Chat({ chatHistory, onSendMessage, onClearHistory, isSen
   };
 
   return (
-    <div className="flex flex-col w-full h-full min-h-[70vh] bg-zinc-950 rounded-[24px] border border-white/5 overflow-hidden shadow-2xl" id="chat-container">
+    <div className="flex flex-col w-full h-full min-h-[70vh] clean-panel overflow-hidden" id="chat-container">
       
       {/* Messages Scroll Area */}
-      <div className="flex-1 overflow-y-auto p-5 space-y-6 bg-zinc-950" id="chat-messages-container">
+      <div className="flex-1 overflow-y-auto p-5 space-y-6 bg-[var(--app-bg)]" id="chat-messages-container">
         {chatHistory.map((msg) => {
           const isUser = msg.sender === 'user';
           return (
@@ -50,22 +50,22 @@ export default function Chat({ chatHistory, onSendMessage, onClearHistory, isSen
             >
               {/* Coach Avatar */}
               {!isUser && (
-                <div className="h-8 w-8 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center text-lime-400 shrink-0">
+                <div className="h-8 w-8 rounded-full clean-panel flex items-center justify-center text-accent-lime shrink-0 shadow-sm">
                   <Activity className="h-4 w-4" />
                 </div>
               )}
 
               <div className={`flex flex-col max-w-[85%] md:max-w-[75%] ${isUser ? 'items-end' : 'items-start'}`}>
                 {/* Message Bubble */}
-                <div className={`px-4 py-3 text-sm rounded-lg leading-relaxed ${
+                <div className={`px-4 py-3 text-sm rounded-2xl leading-relaxed shadow-sm ${
                   isUser
-                    ? 'bg-zinc-800 text-zinc-100 rounded-tr-none'
-                    : 'bg-zinc-900 text-zinc-200 rounded-tl-none border border-zinc-800/60'
+                    ? 'bg-primary text-[var(--app-bg)] dark:bg-white dark:text-black rounded-br-sm'
+                    : 'clean-panel rounded-bl-sm border border-subtle'
                 }`}>
                   {isUser ? (
-                    <p className="whitespace-pre-wrap">{msg.text}</p>
+                    <p className="whitespace-pre-wrap font-medium">{msg.text}</p>
                   ) : (
-                    <div className="markdown-body prose prose-invert max-w-none text-zinc-200">
+                    <div className="markdown-body prose prose-sm max-w-none text-primary">
                       <Markdown>{msg.text}</Markdown>
                     </div>
                   )}
@@ -73,7 +73,7 @@ export default function Chat({ chatHistory, onSendMessage, onClearHistory, isSen
 
                 {/* Saved Plan Subtitle */}
                 {!isUser && msg.isPlan && (
-                  <span className="mt-1 text-[9px] text-lime-400/85 font-medium uppercase tracking-wider px-1">
+                  <span className="mt-1.5 text-[9px] text-accent-lime font-bold uppercase tracking-wider px-1">
                     ✓ Programma di allenamento memorizzato
                   </span>
                 )}
@@ -85,13 +85,13 @@ export default function Chat({ chatHistory, onSendMessage, onClearHistory, isSen
         {/* Loading State */}
         {isSending && (
           <div className="flex gap-3 justify-start">
-            <div className="h-8 w-8 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center text-lime-400 shrink-0 animate-pulse">
+            <div className="h-8 w-8 rounded-full clean-panel flex items-center justify-center text-accent-lime shrink-0 animate-pulse shadow-sm">
               <Activity className="h-4 w-4" />
             </div>
             <div className="flex flex-col items-start max-w-[75%]">
-              <div className="px-4 py-3 bg-zinc-900 text-zinc-400 rounded-lg rounded-tl-none border border-zinc-800/60 flex items-center gap-2">
-                <RefreshCw className="h-3.5 w-3.5 animate-spin text-lime-400" />
-                <span className="text-xs font-medium">Il Coach sta elaborando...</span>
+              <div className="px-4 py-3 clean-panel rounded-2xl rounded-bl-sm border border-subtle flex items-center gap-2 shadow-sm">
+                <RefreshCw className="h-3.5 w-3.5 animate-spin text-accent-lime" />
+                <span className="text-xs font-medium text-secondary">Il Coach sta elaborando...</span>
               </div>
             </div>
           </div>
@@ -101,35 +101,35 @@ export default function Chat({ chatHistory, onSendMessage, onClearHistory, isSen
       </div>
 
       {/* Input Form */}
-      <div className="bg-zinc-950 border-t border-white/5 p-4 flex flex-col gap-3">
-        <form onSubmit={handleSend} className="flex gap-3">
+      <div className="clean-panel border-t-0 rounded-none rounded-b-[16px] sm:rounded-b-[24px] p-4 flex flex-col gap-3 z-10 shadow-[0_-4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_-4px_20px_rgba(0,0,0,0.2)]">
+        <form onSubmit={handleSend} className="flex gap-3 relative">
           <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             disabled={isSending}
             placeholder="Chiedi un consiglio o crea un piano..."
-            className="flex-1 bg-white/5 border border-white/10 focus:border-white/20 rounded-full px-5 py-3.5 text-sm text-white placeholder-zinc-500 outline-none transition-colors"
+            className="flex-1 bg-surface-inset border border-subtle focus:border-default rounded-full px-5 py-3.5 text-sm text-primary placeholder:text-muted outline-none transition-colors"
             id="chat-input-field"
           />
           <button
             type="submit"
             disabled={!input.trim() || isSending}
-            className="bg-lime-400 hover:bg-lime-300 disabled:bg-zinc-800 text-black disabled:text-zinc-600 rounded-full h-12 w-12 flex items-center justify-center font-bold transition-colors cursor-pointer shrink-0 shadow-neon-glow"
+            className="bg-accent-lime hover:opacity-90 disabled:bg-surface-inset disabled:border disabled:border-subtle text-black disabled:text-muted rounded-full h-[52px] w-[52px] flex items-center justify-center font-bold transition-all cursor-pointer shrink-0 shadow-sm active:scale-95"
             id="chat-submit-btn"
           >
-            <Send className="h-4 w-4 ml-1" />
+            <Send className="h-4 w-4 ml-0.5" />
           </button>
         </form>
         <div className="flex justify-between items-center px-2">
-          <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-semibold flex items-center gap-1.5">
-            <Sparkles className="h-3 w-3 text-lime-400" />
-            AI Assistant
+          <span className="text-[10px] text-muted uppercase tracking-wider font-bold flex items-center gap-1.5">
+            <Sparkles className="h-3 w-3 text-accent-lime" />
+            Coach AI
           </span>
           <button
             type="button"
             onClick={() => setShowClearConfirm(true)}
-            className="text-[10px] text-zinc-500 hover:text-rose-400 uppercase tracking-wider font-semibold transition-colors flex items-center gap-1 cursor-pointer"
+            className="text-[10px] text-muted hover:text-accent-rose uppercase tracking-wider font-bold transition-colors flex items-center gap-1 cursor-pointer"
           >
             <Trash2 className="h-3 w-3" />
             Svuota Chat
@@ -144,24 +144,24 @@ export default function Chat({ chatHistory, onSendMessage, onClearHistory, isSen
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+            className="absolute inset-0 bg-black/40 dark:bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 z-50"
           >
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-zinc-900 border border-zinc-800 p-6 rounded-lg max-w-sm w-full shadow-2xl text-center space-y-4"
+              className="clean-panel p-6 max-w-sm w-full shadow-2xl text-center space-y-4"
             >
               <div className="space-y-2">
-                <h4 className="text-sm font-semibold text-white">Svuotare la chat?</h4>
-                <p className="text-xs text-zinc-400 leading-relaxed">
+                <h4 className="text-sm font-bold text-primary">Svuotare la chat?</h4>
+                <p className="text-xs text-secondary leading-relaxed">
                   L'intera cronologia dei consigli e dei programmi di allenamento generati in questa conversazione verrà cancellata.
                 </p>
               </div>
-              <div className="flex gap-3 pt-2 text-xs font-medium">
+              <div className="flex gap-3 pt-2 text-xs font-bold">
                 <button
                   onClick={() => setShowClearConfirm(false)}
-                  className="flex-1 bg-zinc-950 border border-zinc-800 hover:bg-zinc-800 text-zinc-300 py-2 rounded transition-colors"
+                  className="flex-1 bg-surface-inset border border-subtle hover:border-default text-primary py-2.5 rounded-lg transition-colors"
                 >
                   Annulla
                 </button>
@@ -170,7 +170,7 @@ export default function Chat({ chatHistory, onSendMessage, onClearHistory, isSen
                     await onClearHistory();
                     setShowClearConfirm(false);
                   }}
-                  className="flex-1 bg-rose-600 hover:bg-rose-500 text-white py-2 rounded transition-colors"
+                  className="flex-1 bg-accent-rose text-white py-2.5 rounded-lg transition-colors hover:opacity-90 shadow-sm"
                 >
                   Svuota
                 </button>

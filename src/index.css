@@ -10,89 +10,244 @@
   --font-display: "Oswald", "system-ui", "-apple-system", sans-serif;
 }
 
-/* Custom UI Utilities for Athletic Bento System */
+/* ─────────────────────────────────────────────────────────────
+   DESIGN TOKENS — MacOS Inspired Clean Aesthetic
+───────────────────────────────────────────────────────────── */
+:root {
+  /* Surfaces - Default (Dark Mode) */
+  --app-bg:            #1a1a1a; /* The very background outside the window */
+  --window-bg:         #242424; /* The main window background */
+  --surface-card:      #2d2d2d; /* Solid card background */
+  --surface-card-alt:  #333333;
+  --surface-popover:   rgba(45, 45, 45, 0.85); /* Translucent popover */
+  --surface-inset:     #1e1e1e;
+
+  /* Borders */
+  --border-subtle:     rgba(255,255,255,0.06);
+  --border-default:    rgba(255,255,255,0.12);
+  --border-strong:     rgba(255,255,255,0.20);
+  --border-window:     rgba(255,255,255,0.10);
+
+  /* Text */
+  --text-primary:      #ffffff;
+  --text-secondary:    #a1a1aa;
+  --text-muted:        #71717a;
+  --text-faint:        #52525b;
+
+  /* Accents - Preserving the Athletic Neon Palette */
+  --accent-lime:       #CCFF00;
+  --accent-rose:       #FF4500;
+  --accent-cyan:       #22d3ee;
+  --accent-amber:      #fbbf24;
+  --accent-blue:       #60a5fa;
+
+  /* Shadows */
+  --shadow-window:     0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  --shadow-popover:    0 10px 30px -5px rgba(0, 0, 0, 0.4);
+}
+
+body.light-theme {
+  /* Surfaces - Bright Mode (MacOS Clean) */
+  --app-bg:            #e5e5e5; /* The very background outside the window */
+  --window-bg:         #ffffff; /* The main window background */
+  --surface-card:      #f4f4f5; /* Very light grey card, or white on white with border */
+  --surface-card-alt:  #e4e4e7;
+  --surface-popover:   rgba(255, 255, 255, 0.85); /* Translucent popover */
+  --surface-inset:     #f4f4f5;
+
+  /* Borders */
+  --border-subtle:     rgba(0,0,0,0.04);
+  --border-default:    rgba(0,0,0,0.08);
+  --border-strong:     rgba(0,0,0,0.15);
+  --border-window:     rgba(0,0,0,0.10);
+
+  /* Text */
+  --text-primary:      #111111;
+  --text-secondary:    #52525b;
+  --text-muted:        #71717a;
+  --text-faint:        #a1a1aa;
+
+  /* Accents - Darkened slightly for contrast on bright background */
+  --accent-lime:       #65a30d;
+  --accent-rose:       #e11d48;
+  --accent-cyan:       #0891b2;
+  --accent-amber:      #d97706;
+  --accent-blue:       #2563eb;
+
+  /* Shadows */
+  --shadow-window:     0 20px 40px -10px rgba(0, 0, 0, 0.1);
+  --shadow-popover:    0 10px 25px -5px rgba(0, 0, 0, 0.08);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   SEMANTIC UTILITY CLASSES
+───────────────────────────────────────────────────────────── */
 @layer utilities {
+
+  /* The main app container holding everything, simulating a desktop window */
+  .mac-window {
+    background: var(--window-bg);
+    border: 1px solid var(--border-window);
+    border-radius: 16px;
+    box-shadow: var(--shadow-window);
+    overflow: hidden;
+    /* Optional: add a subtle inner highlight */
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), var(--shadow-window);
+  }
+
+  /* The new clean flat card replacing the heavy glass-panel */
+  .clean-panel {
+    background: var(--surface-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+  }
+
+  .clean-panel-alt {
+    background: var(--surface-card-alt);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+  }
+
+  /* Dropdown/Popover with heavy blur (MacOS style) */
+  .mac-popover {
+    background: var(--surface-popover);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid var(--border-default);
+    border-radius: 12px;
+    box-shadow: var(--shadow-popover);
+  }
+
+  /* Segmented control wrapper */
+  .segmented-control {
+    background: var(--surface-inset);
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    padding: 4px;
+    display: inline-flex;
+    gap: 2px;
+  }
+
+  /* Segmented control item (active state handled by React via classes) */
+  .segmented-item {
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: var(--text-secondary);
+  }
+  .segmented-item.active {
+    background: var(--surface-card);
+    color: var(--text-primary);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  }
+
+  /* Legacy aliases to avoid breaking everything instantly, will be replaced */
   .glass-panel {
-    background: rgba(255, 255, 255, 0.04);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-  }
-  
-  .glass-neon-border {
-    background: rgba(204, 255, 0, 0.04);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(204, 255, 0, 0.2);
+    background: var(--surface-card);
+    border: 1px solid var(--border-subtle);
   }
 
-  .shadow-neon-glow {
-    box-shadow: 0px 8px 32px rgba(204, 255, 0, 0.15);
+  /* Surface inset (inputs, table headers, code blocks) */
+  .surface-inset {
+    background: var(--surface-inset);
+    border: 1px solid var(--border-subtle);
   }
 
-  .shadow-neon-glow-red {
-    box-shadow: 0px 8px 32px rgba(255, 69, 0, 0.15);
+  /* Text helpers */
+  .text-primary   { color: var(--text-primary); }
+  .text-secondary { color: var(--text-secondary); }
+  .text-muted     { color: var(--text-muted); }
+  .text-faint     { color: var(--text-faint); }
+
+  /* Border helpers */
+  .border-subtle  { border-color: var(--border-subtle); }
+  .border-default { border-color: var(--border-default); }
+
+  /* Accent text colors */
+  .text-accent-lime  { color: var(--accent-lime); }
+  .text-accent-rose  { color: var(--accent-rose); }
+  .text-accent-cyan  { color: var(--accent-cyan); }
+  .text-accent-amber { color: var(--accent-amber); }
+
+  /* Metric tile */
+  .metric-tile {
+    background: var(--surface-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 16px;
+    padding: 1rem 1.25rem;
   }
 }
 
+/* ─────────────────────────────────────────────────────────────
+   BASE STYLES
+───────────────────────────────────────────────────────────── */
 body {
   font-family: var(--font-sans);
-  background-color: var(--color-highdensity-bg);
-  color: #fff;
+  background-color: var(--app-bg);
+  color: var(--text-primary);
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100vh;
+  /* Instead of full page scrolling, we'll let the window scroll if on desktop */
+  overflow: hidden; 
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  transition: background-color 0.3s ease;
+}
+
+html {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
 }
 
 h1, h2, h3, .font-display {
   font-family: var(--font-display);
 }
 
-/* Native App Feel */
-body, html {
-  margin: 0;
-  padding: 0;
-  width: 100%;
-  height: 100%;
-  
-  /* Disable bounce/overscroll effect on iOS */
-  overscroll-behavior-y: none;
-  
-  /* Prevent text selection to feel like a native app */
-  user-select: none;
-  -webkit-user-select: none;
-  
-  /* Disable callout menu on long-press (iOS Safari) */
-  -webkit-touch-callout: none;
-}
-
-/* Allow selection in inputs and textareas */
 input, textarea {
   user-select: auto;
   -webkit-user-select: auto;
 }
 
-/* Hide scrollbars globally but allow scrolling */
-::-webkit-scrollbar {
-  display: none;
-}
-* {
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;     /* Firefox */
+/* Hide scrollbars globally */
+::-webkit-scrollbar { display: none; }
+* { -ms-overflow-style: none; scrollbar-width: none; }
+
+#app-root-container {
+  background-color: transparent !important;
 }
 
-/* Leaflet dark mode overrides */
+/* Light theme overrides for specific Tailwind classes used in legacy components */
+.light-theme .text-white           { color: var(--text-primary) !important; }
+.light-theme .text-zinc-100        { color: var(--text-primary) !important; }
+.light-theme .text-zinc-200        { color: var(--text-secondary) !important; }
+.light-theme .text-zinc-300        { color: var(--text-secondary) !important; }
+.light-theme .text-zinc-400        { color: var(--text-muted) !important; }
+.light-theme .text-zinc-500        { color: var(--text-faint) !important; }
+.light-theme .text-zinc-600        { color: var(--text-faint) !important; }
+
+/* ─────────────────────────────────────────────────────────────
+   LEAFLET MAP
+───────────────────────────────────────────────────────────── */
 .leaflet-container {
-  background: #0a0a0a;
-  border-radius: 0.5rem;
+  background: var(--surface-card);
+  border-radius: 12px;
 }
 .leaflet-tile-pane {
-  filter: grayscale(1) brightness(0.82) contrast(1.05);
+  filter: grayscale(0.2) brightness(0.9) contrast(1.1);
+}
+body.light-theme .leaflet-tile-pane {
+  filter: none;
 }
 .leaflet-control-attribution {
-  background: rgba(15,15,15,0.7) !important;
-  color: #52525b !important;
-  font-size: 9px !important;
-}
-.leaflet-control-attribution a {
-  color: #71717a !important;
+  display: none !important; /* Cleaner UI */
 }
 .leaflet-bar {
   border: none !important;
@@ -103,155 +258,65 @@ input, textarea {
 }
 .leaflet-control-zoom-in,
 .leaflet-control-zoom-out {
-  border-radius: 50% !important;
-  background: rgba(255, 255, 255, 0.15) !important;
+  border-radius: 8px !important;
+  background: var(--surface-popover) !important;
   backdrop-filter: blur(8px) !important;
-  -webkit-backdrop-filter: blur(8px) !important;
-  color: rgba(255, 255, 255, 0.8) !important;
-  border: 1px solid rgba(255, 255, 255, 0.2) !important;
-  width: 30px !important;
-  height: 30px !important;
-  line-height: 28px !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-default) !important;
+  width: 28px !important;
+  height: 28px !important;
+  line-height: 26px !important;
   font-size: 15px !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2) !important;
+  transition: all 0.2s ease !important;
+  box-shadow: var(--shadow-popover) !important;
 }
 .leaflet-control-zoom-in:hover,
 .leaflet-control-zoom-out:hover {
-  background: rgba(255, 255, 255, 0.25) !important;
-  color: #ffffff !important;
-  border-color: rgba(255, 255, 255, 0.4) !important;
+  background: var(--surface-card) !important;
   transform: scale(1.05);
 }
 
-/* Background image behind all with mid opacity */
-body {
-  position: relative;
-  background-color: #09090b !important;
+/* ─────────────────────────────────────────────────────────────
+   MARKDOWN
+───────────────────────────────────────────────────────────── */
+.markdown-body {
+  color: var(--text-primary);
+  line-height: 1.65;
 }
-
-body::before {
-  content: "";
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  z-index: -1;
-  background-image: url('/images/background.jpg');
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-  opacity: 0.2; /* Mid opacity (35%) */
-  pointer-events: none;
+.markdown-body h1, .markdown-body h2, .markdown-body h3,
+.markdown-body h4, .markdown-body h5, .markdown-body h6 {
+  color: var(--text-primary);
+  font-weight: 700;
+  margin: 1em 0 0.4em;
+  font-family: var(--font-display);
 }
-
-#app-root-container {
-  background-color: transparent !important;
+.markdown-body p     { margin: 0.5em 0; }
+.markdown-body ul    { list-style: disc; padding-left: 1.4em; margin: 0.5em 0; }
+.markdown-body ol    { list-style: decimal; padding-left: 1.4em; margin: 0.5em 0; }
+.markdown-body li    { margin: 0.2em 0; }
+.markdown-body strong { color: var(--text-primary); font-weight: 700; }
+.markdown-body code  {
+  background: var(--surface-inset);
+  border-radius: 4px;
+  padding: 0.1em 0.35em;
+  font-size: 0.85em;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  border: 1px solid var(--border-subtle);
 }
-
-/* Light mode overrides */
-body.light-theme {
-  background-color: #f4f4f5 !important;
-  color: #27272a !important;
+.markdown-body blockquote {
+  border-left: 3px solid var(--accent-lime);
+  padding-left: 1em;
+  color: var(--text-secondary);
+  margin: 0.75em 0;
+  font-style: italic;
 }
-
-body.light-theme::before {
-  opacity: 0.07;
-  filter: grayscale(1);
+.markdown-body table { width: 100%; border-collapse: collapse; font-size: 0.85em; }
+.markdown-body th, .markdown-body td {
+  border: 1px solid var(--border-subtle);
+  padding: 0.4em 0.75em;
+  text-align: left;
 }
-
-/* Override containers and cards */
-.light-theme .bg-zinc-900,
-.light-theme .bg-zinc-900\/20,
-.light-theme .bg-zinc-900\/30,
-.light-theme .bg-zinc-900\/40,
-.light-theme .bg-zinc-900\/50,
-.light-theme .bg-zinc-900\/60,
-.light-theme .bg-zinc-900\/80,
-.light-theme .bg-zinc-900\/90,
-.light-theme .bg-zinc-900\/95 {
-  background-color: rgba(255, 255, 255, 0.75) !important;
-  backdrop-filter: blur(12px) !important;
-  -webkit-backdrop-filter: blur(12px) !important;
-  border-color: rgba(228, 228, 231, 0.8) !important;
-  color: #27272a !important;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03) !important;
-}
-
-.light-theme .bg-zinc-950,
-.light-theme .bg-zinc-950\/20,
-.light-theme .bg-zinc-950\/50,
-.light-theme .bg-zinc-950\/80 {
-  background-color: rgba(244, 244, 245, 0.8) !important;
-  border-color: rgba(228, 228, 231, 0.8) !important;
-  color: #27272a !important;
-}
-
-/* Buttons and borders */
-.light-theme .border-zinc-800,
-.light-theme .border-zinc-800\/40,
-.light-theme .border-zinc-800\/50,
-.light-theme .border-zinc-800\/60,
-.light-theme .border-zinc-800\/80,
-.light-theme .border-zinc-700\/80,
-.light-theme .border-zinc-900 {
-  border-color: #e4e4e7 !important;
-}
-
-.light-theme .text-white {
-  color: #18181b !important;
-}
-
-.light-theme .text-zinc-300 {
-  color: #3f3f46 !important;
-}
-
-.light-theme .text-zinc-400 {
-  color: #52525b !important;
-}
-
-.light-theme .text-zinc-500 {
-  color: #52525b !important;
-}
-
-.light-theme .text-zinc-600 {
-  color: #71717a !important;
-}
-
-.light-theme .text-cyan-400 {
-  color: #0891b2 !important;
-}
-
-.light-theme .text-rose-400 {
-  color: #e11d48 !important;
-}
-
-.light-theme .text-lime-400 {
-  color: #65a30d !important;
-}
-
-/* Nav specific active states */
-.light-theme #nav-history-tab.bg-zinc-800,
-.light-theme #nav-dashboard-tab.bg-zinc-800 {
-  background-color: #e4e4e7 !important;
-  color: #18181b !important;
-}
-
-/* Fix active button (bg-zinc-700) and active calendar day (bg-zinc-800) in light mode */
-.light-theme .bg-zinc-700,
-.light-theme .bg-zinc-800 {
-  background-color: #27272a !important;
-  color: #ffffff !important;
-}
-
-/* Map tiles in light mode */
-.light-theme .leaflet-container {
-  background: #e4e4e7 !important;
-}
-.light-theme .leaflet-tile-pane {
-  filter: none !important; /* Standard colored maps look better in light mode */
-}
+.markdown-body th { background: var(--surface-inset); font-weight: 700; }

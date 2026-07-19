@@ -3,9 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { MessageSquare, TrendingUp, Home, Calendar, Zap, Sparkles, Sun, Moon } from 'lucide-react';
+import { Home, Calendar, Sparkles, Settings, X, Search, Grid } from 'lucide-react';
 import { Activity as ActivityType, ChatMessage, RunningStats } from './types.js';
 import Dashboard from './components/Dashboard.tsx';
 import Chat from './components/Chat.tsx';
@@ -18,8 +18,9 @@ export default function App() {
   const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
-    return (localStorage.getItem('theme') as 'dark' | 'light') || 'dark';
+    return (localStorage.getItem('theme') as 'dark' | 'light') || 'light';
   });
+  const [showSettings, setShowSettings] = useState(false);
 
   useEffect(() => {
     if (theme === 'light') {
@@ -45,29 +46,16 @@ export default function App() {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
 
-  // Fetch all initial data
   const fetchData = async () => {
     try {
-      // 1. Stats
       const statsRes = await fetch('/api/stats');
-      if (statsRes.ok) {
-        const statsData = await statsRes.json();
-        setStats(statsData);
-      }
+      if (statsRes.ok) setStats(await statsRes.json());
 
-      // 2. Activities
       const actRes = await fetch('/api/activities?limit=100');
-      if (actRes.ok) {
-        const actData = await actRes.json();
-        setActivities(actData.activities);
-      }
+      if (actRes.ok) setActivities((await actRes.json()).activities);
 
-      // 3. Chat History
       const chatRes = await fetch('/api/chat-history');
-      if (chatRes.ok) {
-        const chatData = await chatRes.json();
-        setChatHistory(chatData.history);
-      }
+      if (chatRes.ok) setChatHistory((await chatRes.json()).history);
     } catch (error) {
       console.error('Error loading data:', error);
     }
@@ -77,7 +65,6 @@ export default function App() {
     fetchData();
   }, []);
 
-  // Send message
   const handleSendMessage = async (message: string, forcePremium: boolean) => {
     setIsSending(true);
     try {
@@ -86,55 +73,40 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message, forcePremium })
       });
-
       if (response.ok) {
         const result = await response.json();
         setChatHistory(prev => [...prev, result.user_message, result.assistant_response]);
-
-        // Refresh data if a training plan was added/saved
-        if (result.is_plan) {
-          fetchData();
-        }
+        if (result.is_plan) fetchData();
       }
     } catch (error) {
-      console.error('Network error during chat:', error);
+      console.error('Error:', error);
     } finally {
       setIsSending(false);
     }
   };
 
-  // Clear chat
   const handleClearChatHistory = async () => {
     try {
       const response = await fetch('/api/chat-clear', { method: 'POST' });
       if (response.ok) {
-        setChatHistory([
-          {
-            id: 'chat_init',
-            sender: 'assistant',
-            text: `Ciao, Runner! 🏃\n\nBenvenuto su **tommytegamino_run**.\n\nSono qui per aiutarti a ottimizzare le tue sessioni di corsa e strutturare i tuoi allenamenti.\n\n- **Consigli e Piani**: Chiedimi pareri sulle tue statistiche o domandami di creare piani completi (es. *"crea una tabella di 4 settimane per preparare una maratona"*).\n- **Sincronizzazione file TCX**: Puoi caricare i file delle tue corse (.tcx) direttamente nella scheda **Attività** per aggiornare le statistiche e visualizzare il grafico dei tuoi progressi.`,
-            timestamp: new Date().toISOString()
-          }
-        ]);
+        setChatHistory([{
+          id: 'chat_init', sender: 'assistant', text: `Ciao, Runner!`, timestamp: new Date().toISOString()
+        }]);
       }
     } catch (error) {
       console.error('Error clearing chat:', error);
     }
   };
 
-  // Upload TCX
   const handleUploadTcx = async (files: File[]) => {
     if (files.length === 0) return;
     setIsUploading(true);
     setUploadError(null);
     setUploadSuccess(null);
 
-    // Chunk files into batches of 5 to avoid Vercel 4.5MB payload limit on Serverless Functions
     const BATCH_SIZE = 5;
     let successCount = 0;
     let failedCount = 0;
-    let lastActivityName = '';
-    let detailedError = '';
 
     for (let i = 0; i < files.length; i += BATCH_SIZE) {
       const batch = files.slice(i, i + BATCH_SIZE);
@@ -142,181 +114,223 @@ export default function App() {
       batch.forEach(f => formData.append('files', f));
 
       try {
-        const response = await fetch('/api/upload-tcx', {
-          method: 'POST',
-          body: formData
-        });
-
+        const response = await fetch('/api/upload-tcx', { method: 'POST', body: formData });
         if (response.ok) {
           const result = await response.json();
           successCount += result.successCount || 0;
           failedCount += result.failedCount || 0;
-          if (result.activity) lastActivityName = result.activity.name;
         } else {
-          const text = await response.text();
-          console.error('Batch error:', text);
-          try {
-            const errObj = JSON.parse(text);
-            if (errObj.errors && errObj.errors.length > 0) {
-              detailedError = errObj.errors.join(' | ');
-            } else if (errObj.error) {
-              detailedError = errObj.error;
-            }
-          } catch (e) {
-            // plain text
-          }
           failedCount += batch.length;
         }
-      } catch (error: any) {
-        console.error('Network error during upload:', error);
+      } catch (error) {
         failedCount += batch.length;
       }
     }
 
     if (successCount > 0) {
-      if (files.length === 1) {
-        setUploadSuccess(`Sincronizzata corsa: "${lastActivityName || 'Nuova attività'}"`);
-      } else {
-        setUploadSuccess(`Sincronizzati con successo ${successCount} allenamenti! ${failedCount > 0 ? `(${failedCount} falliti)` : ''}`);
-      }
-      if (detailedError) setUploadError(detailedError);
+      setUploadSuccess(`Sincronizzati ${successCount} allenamenti`);
       await fetchData();
       setTimeout(() => setUploadSuccess(null), 5000);
     } else {
-      setUploadError(detailedError || `Errore: impossibile caricare i file. ${failedCount} falliti.`);
+      setUploadError(`Errore caricamento. ${failedCount} falliti.`);
     }
-    
     setIsUploading(false);
   };
 
-  return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-300 flex flex-col font-sans" id="app-root-container">
+  // The title bar for the MacOS window
+  const WindowTitleBar = () => (
+    <div className="h-14 border-b border-subtle flex items-center justify-between px-4 shrink-0 bg-surface-card rounded-t-2xl z-20">
+      {/* Traffic Lights */}
+      <div className="flex items-center gap-2">
+        <div className="w-3 h-3 rounded-full bg-[#FF5F56] border border-[#E0443E]"></div>
+        <div className="w-3 h-3 rounded-full bg-[#FFBD2E] border border-[#DEA123]"></div>
+        <div className="w-3 h-3 rounded-full bg-[#27C93F] border border-[#1AAB29]"></div>
+        <div className="ml-4 flex items-center gap-1 bg-surface-inset px-2 py-1 rounded-md border border-subtle cursor-pointer hover:bg-surface-card-alt">
+          <span className="text-xl leading-none font-light mb-1">+</span>
+        </div>
+      </div>
 
-      {/* Main Content Area */}
-      <main className="flex-1 max-w-6xl w-full mx-auto px-4 py-8 pb-28">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={isAdminOpen ? 'admin' : activeTab}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.15 }}
-          >
-            {isAdminOpen ? (
-              <Admin onClose={() => {
-                setIsAdminOpen(false);
-                fetchData(); // refresh in case activities were deleted/renamed
-              }} />
-            ) : activeTab === 'dashboard' ? (
-              <Dashboard
-                stats={stats}
-                activities={activities}
-                onNavigateToHistory={() => setActiveTab('history')}
-                onSecretUnlock={() => setIsAdminOpen(true)}
-              />
-            ) : activeTab === 'chat' ? (
-              <Chat
-                chatHistory={chatHistory}
-                onSendMessage={handleSendMessage}
-                onClearHistory={handleClearChatHistory}
-                isSending={isSending}
-                onClose={() => setActiveTab('dashboard')}
-              />
-            ) : activeTab === 'activity_detail' && selectedActivityId ? (
-              <ActivityDetail
-                activity={activities.find(a => a.id === selectedActivityId)!}
-                onBack={() => setActiveTab('history')}
-              />
-            ) : (
-              <History
-                activities={activities}
-                onUploadTcx={handleUploadTcx}
-                isUploading={isUploading}
-                uploadError={uploadError}
-                uploadSuccess={uploadSuccess}
-                onActivitySelect={(id) => {
-                  setSelectedActivityId(id);
-                  setActiveTab('activity_detail');
-                }}
-              />
-            )}
-          </motion.div>
-        </AnimatePresence>
-      </main>
-
-      {/* Floating Dynamic Island Navigation (Unified Bottom Fixed Nav) */}
-      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[1500] w-[90%] max-w-[320px] sm:max-w-[350px]">
-        <nav className="relative flex items-center justify-between bg-zinc-900/90 border border-zinc-800/80 rounded-full backdrop-blur-lg shadow-2xl shadow-black/50 px-2 h-16 transition-all duration-300">
-
-          <div className="flex items-center gap-2">
-            {[
-              { id: 'chat', icon: Sparkles, label: 'Coach' },
-              { id: 'dashboard', icon: Home, label: 'Home' },
-              { id: 'history', icon: Calendar, label: 'Storico' }
-            ].map((item) => {
-              const Icon = item.icon;
-              const isActive = item.id === activeTab || (item.id === 'history' && activeTab === 'activity_detail');
-
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => {
-                    setActiveTab(item.id as 'chat' | 'dashboard' | 'history');
-                  }}
-                  className="relative flex items-center justify-center w-14 h-14 cursor-pointer outline-none tap-highlight-transparent"
-                  title={item.label}
-                  style={{ WebkitTapHighlightColor: 'transparent' }}
-                >
-                  {/* Floating Bubble Background - Liquid Glass effect */}
-                  {isActive && (
-                    <motion.div
-                      layoutId="nav-indicator"
-                      className="absolute -top-4 w-16 h-16 bg-lime-400 rounded-full shadow-lg shadow-lime-400/40"
-                      transition={{
-                        type: "spring",
-                        stiffness: 220,
-                        damping: 18,
-                        mass: 1.1
-                      }}
-                    />
-                  )}
-
-                  {/* Icon that grows and moves into the popped bubble */}
-                  <motion.div
-                    className={`relative z-10 transition-colors duration-300 ${isActive ? 'text-black' : 'text-zinc-500 hover:text-zinc-300'}`}
-                    initial={false}
-                    animate={{
-                      y: isActive ? -12 : 0,
-                      scale: isActive ? 1.3 : 1
-                    }}
-                    transition={{
-                      type: "spring",
-                      stiffness: 250,
-                      damping: 20
-                    }}
-                  >
-                    <Icon className="w-6 h-6" strokeWidth={isActive ? 2.5 : 2} />
-                  </motion.div>
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="h-8 w-px bg-zinc-800/60 mx-1"></div>
-
-          {/* Theme Toggle (Stays as is) */}
+      {/* Tabs */}
+      <div className="hidden md:flex items-center gap-1">
+        {[
+          { id: 'dashboard', label: 'Overview', icon: Grid },
+          { id: 'history', label: 'History', icon: Calendar },
+          { id: 'chat', label: 'Coach AI', icon: Sparkles },
+        ].map(t => (
           <button
-            onClick={() => setTheme(prev => prev === 'dark' ? 'light' : 'dark')}
-            className="flex items-center justify-center w-12 h-12 rounded-full transition-all duration-200 cursor-pointer text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/30 mr-1"
-            title="Cambia tema"
+            key={t.id}
+            onClick={() => setActiveTab(t.id as any)}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors ${
+              activeTab === t.id || (t.id === 'history' && activeTab === 'activity_detail')
+                ? 'bg-surface-inset text-primary shadow-sm border border-subtle'
+                : 'text-secondary hover:text-primary'
+            }`}
           >
-            {theme === 'dark' ? (
-              <Sun className="h-5 w-5 text-lime-400" />
-            ) : (
-              <Moon className="h-5 w-5 text-lime-600" />
-            )}
+            <t.icon className="w-4 h-4" /> {t.label}
           </button>
+        ))}
+      </div>
 
+      {/* Right Controls */}
+      <div className="flex items-center gap-2 relative">
+        <button className="w-8 h-8 rounded-lg hover:bg-surface-inset flex items-center justify-center text-secondary transition-colors">
+          <Search className="w-4 h-4" />
+        </button>
+        <button 
+          onClick={() => setShowSettings(!showSettings)}
+          className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
+            showSettings ? 'bg-surface-inset text-primary border border-subtle' : 'hover:bg-surface-inset text-secondary'
+          }`}
+        >
+          <Settings className="w-4 h-4" />
+        </button>
+
+        {/* Settings Popover */}
+        <AnimatePresence>
+          {showSettings && (
+            <motion.div
+              initial={{ opacity: 0, y: 10, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 10, scale: 0.95 }}
+              transition={{ duration: 0.15 }}
+              className="absolute top-12 right-0 w-72 mac-popover p-4 z-50"
+            >
+              <div className="flex items-center justify-between mb-4 border-b border-subtle pb-3">
+                <h3 className="font-medium text-sm">Settings</h3>
+                <button onClick={() => setShowSettings(false)} className="text-secondary hover:text-primary">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium flex items-center gap-2">Theme</span>
+                    <span className="text-[10px] text-muted border border-subtle px-1 rounded">T</span>
+                  </div>
+                  <div className="segmented-control w-full flex">
+                    <div 
+                      onClick={() => setTheme('light')}
+                      className={`flex-1 text-center segmented-item ${theme === 'light' ? 'active' : ''}`}
+                    >
+                      Bright
+                    </div>
+                    <div 
+                      onClick={() => setTheme('dark')}
+                      className={`flex-1 text-center segmented-item ${theme === 'dark' ? 'active' : ''}`}
+                    >
+                      Dark
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border-t border-subtle pt-4">
+                   <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium flex items-center gap-2">Admin Tools</span>
+                  </div>
+                  <div className="segmented-control w-full flex">
+                     <div 
+                      onClick={() => { setIsAdminOpen(true); setShowSettings(false); }}
+                      className="flex-1 text-center segmented-item hover:bg-surface-card"
+                    >
+                      Unlock Admin
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-[var(--app-bg)] text-[var(--text-primary)] flex items-center justify-center p-0 sm:p-4 md:p-8 transition-colors duration-300 font-sans" id="app-root-container">
+
+      {/* MacOS Window Container */}
+      <div className="w-full max-w-[1200px] h-[100dvh] sm:h-[90vh] mac-window flex flex-col relative rounded-none sm:rounded-2xl">
+        <WindowTitleBar />
+
+        {/* Content Area */}
+        <main className="flex-1 overflow-y-auto px-4 sm:px-8 py-8">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={isAdminOpen ? 'admin' : activeTab}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.15 }}
+            >
+              {isAdminOpen ? (
+                <Admin onClose={() => {
+                  setIsAdminOpen(false);
+                  fetchData();
+                }} />
+              ) : activeTab === 'dashboard' ? (
+                <Dashboard
+                  stats={stats}
+                  activities={activities}
+                  onNavigateToHistory={() => setActiveTab('history')}
+                />
+              ) : activeTab === 'chat' ? (
+                <Chat
+                  chatHistory={chatHistory}
+                  onSendMessage={handleSendMessage}
+                  onClearHistory={handleClearChatHistory}
+                  isSending={isSending}
+                  onClose={() => setActiveTab('dashboard')}
+                />
+              ) : activeTab === 'activity_detail' && selectedActivityId ? (
+                <ActivityDetail
+                  activity={activities.find(a => a.id === selectedActivityId)!}
+                  onBack={() => setActiveTab('history')}
+                />
+              ) : (
+                <History
+                  activities={activities}
+                  onUploadTcx={handleUploadTcx}
+                  isUploading={isUploading}
+                  uploadError={uploadError}
+                  uploadSuccess={uploadSuccess}
+                  onActivitySelect={(id) => {
+                    setSelectedActivityId(id);
+                    setActiveTab('activity_detail');
+                  }}
+                />
+              )}
+            </motion.div>
+          </AnimatePresence>
+        </main>
+      </div>
+
+      {/* Mobile Bottom Navigation (Hidden on desktop since we have top tabs) */}
+      <div className="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-[1500] w-[90%] max-w-[320px]">
+        <nav className="relative flex items-center justify-around mac-popover px-2 h-16 transition-all duration-300">
+          {[
+            { id: 'dashboard', icon: Grid, label: 'Home' },
+            { id: 'history', icon: Calendar, label: 'Storico' },
+            { id: 'chat', icon: Sparkles, label: 'Coach' },
+          ].map((item) => {
+            const Icon = item.icon;
+            const isActive = item.id === activeTab || (item.id === 'history' && activeTab === 'activity_detail');
+
+            return (
+              <button
+                key={item.id}
+                onClick={() => setActiveTab(item.id as any)}
+                className="relative flex items-center justify-center w-14 h-14 cursor-pointer outline-none tap-highlight-transparent"
+              >
+                {isActive && (
+                  <motion.div
+                    layoutId="mobile-nav"
+                    className="absolute inset-2 bg-surface-inset border border-subtle rounded-xl"
+                  />
+                )}
+                <Icon className={`relative z-10 w-5 h-5 ${isActive ? 'text-primary' : 'text-secondary'}`} />
+              </button>
+            );
+          })}
         </nav>
       </div>
 
