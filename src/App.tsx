@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Calendar, Sparkles, Settings, X, Grid } from 'lucide-react';
+import { Calendar, Sparkles, Settings, X, Home } from 'lucide-react';
 import { Activity as ActivityType, ChatMessage, RunningStats } from './types.js';
 import Dashboard from './components/Dashboard.tsx';
 import Chat from './components/Chat.tsx';
@@ -257,12 +257,12 @@ export default function App() {
       </main>
 
       {/* Floating Bottom Navigation */}
-      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[1500] w-[90%] max-w-[320px]">
-        <nav className="relative flex items-center justify-around mac-popover px-2 h-16 transition-all duration-300 rounded-full border border-subtle shadow-popover">
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[1500] w-[90%] max-w-[320px] sm:max-w-[350px]">
+        <nav className="relative flex items-center justify-around mac-popover px-2 h-16 transition-all duration-300 rounded-full border border-subtle shadow-[0_10px_30px_-5px_rgba(0,0,0,0.4)] dark:shadow-[0_10px_30px_-5px_rgba(0,0,0,0.8)]">
           {[
-            { id: 'dashboard', icon: Grid, label: 'Home' },
-            { id: 'history', icon: Calendar, label: 'Storico' },
             { id: 'chat', icon: Sparkles, label: 'Coach' },
+            { id: 'dashboard', icon: Home, label: 'Home' },
+            { id: 'history', icon: Calendar, label: 'Storico' },
           ].map((item) => {
             const Icon = item.icon;
             const isActive = item.id === activeTab || (item.id === 'history' && activeTab === 'activity_detail');
