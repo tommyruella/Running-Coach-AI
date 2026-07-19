@@ -258,7 +258,10 @@ export default function App() {
 
       {/* Floating Bottom Navigation */}
       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[1500] w-[90%] max-w-[360px]">
-        <nav className="relative flex items-center justify-between mac-popover px-4 h-16 transition-all duration-300 rounded-full border border-subtle shadow-[0_10px_30px_-5px_rgba(0,0,0,0.3)] dark:shadow-[0_10px_30px_-5px_rgba(0,0,0,0.8)]">
+        <nav 
+          className="relative flex items-center justify-between mac-popover px-4 h-16 transition-all duration-300 border border-subtle shadow-[0_10px_30px_-5px_rgba(0,0,0,0.3)] dark:shadow-[0_10px_30px_-5px_rgba(0,0,0,0.8)]"
+          style={{ borderRadius: '9999px' }}
+        >
           {/* Left Navigation Buttons */}
           <div className="flex items-center gap-2 flex-1 justify-around">
             {[
@@ -273,14 +276,29 @@ export default function App() {
                 <button
                   key={item.id}
                   onClick={() => setActiveTab(item.id as any)}
-                  className={`relative flex items-center justify-center transition-all duration-300 rounded-full ${
-                    isActive 
-                      ? 'w-14 h-14 bg-[#CCFF00] text-black shadow-[0_0_15px_rgba(204,255,0,0.6)] -translate-y-4 sm:-translate-y-5 scale-110 z-20 font-bold' 
-                      : 'w-12 h-12 text-secondary hover:text-primary'
-                  }`}
+                  className="relative flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 cursor-pointer outline-none tap-highlight-transparent z-10"
                   style={{ WebkitTapHighlightColor: 'transparent' }}
                 >
-                  <Icon className="w-5 h-5 sm:w-6 sm:h-6" strokeWidth={isActive ? 2.5 : 2} />
+                  {isActive && (
+                    <motion.div
+                      layoutId="active-pill"
+                      className="absolute w-14 h-14 sm:w-16 sm:h-16 bg-[#CCFF00] rounded-full shadow-[0_0_20px_rgba(204,255,0,0.6)] -translate-y-4 sm:-translate-y-5 z-0"
+                      transition={{
+                        type: "spring",
+                        stiffness: 300,
+                        damping: 22,
+                        mass: 0.8
+                      }}
+                    />
+                  )}
+                  <Icon 
+                    className={`relative z-10 transition-all duration-300 ${
+                      isActive 
+                        ? 'text-black w-6 h-6 sm:w-7 sm:h-7 scale-110' 
+                        : 'text-secondary hover:text-primary w-5 h-5 sm:w-6 sm:h-6'
+                    }`} 
+                    strokeWidth={isActive ? 2.5 : 2} 
+                  />
                 </button>
               );
             })}
