@@ -3,9 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Home, Calendar, Sparkles, Settings, X, Search, Grid } from 'lucide-react';
+import { Calendar, Sparkles, Settings, X, Grid } from 'lucide-react';
 import { Activity as ActivityType, ChatMessage, RunningStats } from './types.js';
 import Dashboard from './components/Dashboard.tsx';
 import Chat from './components/Chat.tsx';
@@ -137,52 +137,18 @@ export default function App() {
     setIsUploading(false);
   };
 
-  // The title bar for the MacOS window
-  const WindowTitleBar = () => (
-    <div className="h-14 border-b border-subtle flex items-center justify-between px-4 shrink-0 bg-surface-card rounded-t-2xl z-20">
-      {/* Traffic Lights */}
-      <div className="flex items-center gap-2">
-        <div className="w-3 h-3 rounded-full bg-[#FF5F56] border border-[#E0443E]"></div>
-        <div className="w-3 h-3 rounded-full bg-[#FFBD2E] border border-[#DEA123]"></div>
-        <div className="w-3 h-3 rounded-full bg-[#27C93F] border border-[#1AAB29]"></div>
-        <div className="ml-4 flex items-center gap-1 bg-surface-inset px-2 py-1 rounded-md border border-subtle cursor-pointer hover:bg-surface-card-alt">
-          <span className="text-xl leading-none font-light mb-1">+</span>
-        </div>
-      </div>
+  return (
+    <div className="min-h-screen bg-[var(--window-bg)] text-[var(--text-primary)] transition-colors duration-300 font-sans" id="app-root-container">
 
-      {/* Tabs */}
-      <div className="hidden md:flex items-center gap-1">
-        {[
-          { id: 'dashboard', label: 'Overview', icon: Grid },
-          { id: 'history', label: 'History', icon: Calendar },
-          { id: 'chat', label: 'Coach AI', icon: Sparkles },
-        ].map(t => (
-          <button
-            key={t.id}
-            onClick={() => setActiveTab(t.id as any)}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors ${
-              activeTab === t.id || (t.id === 'history' && activeTab === 'activity_detail')
-                ? 'bg-surface-inset text-primary shadow-sm border border-subtle'
-                : 'text-secondary hover:text-primary'
-            }`}
-          >
-            <t.icon className="w-4 h-4" /> {t.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Right Controls */}
-      <div className="flex items-center gap-2 relative">
-        <button className="w-8 h-8 rounded-lg hover:bg-surface-inset flex items-center justify-center text-secondary transition-colors">
-          <Search className="w-4 h-4" />
-        </button>
+      {/* Settings Button (Top Right) */}
+      <div className="fixed top-4 right-4 z-50">
         <button 
           onClick={() => setShowSettings(!showSettings)}
-          className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
-            showSettings ? 'bg-surface-inset text-primary border border-subtle' : 'hover:bg-surface-inset text-secondary'
+          className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors shadow-sm ${
+            showSettings ? 'bg-primary text-[var(--window-bg)] dark:bg-white dark:text-black' : 'mac-popover text-secondary hover:text-primary'
           }`}
         >
-          <Settings className="w-4 h-4" />
+          <Settings className="w-5 h-5" />
         </button>
 
         {/* Settings Popover */}
@@ -193,10 +159,10 @@ export default function App() {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 10, scale: 0.95 }}
               transition={{ duration: 0.15 }}
-              className="absolute top-12 right-0 w-72 mac-popover p-4 z-50"
+              className="absolute top-12 right-0 w-72 mac-popover p-4 z-50 rounded-2xl border border-subtle shadow-popover"
             >
               <div className="flex items-center justify-between mb-4 border-b border-subtle pb-3">
-                <h3 className="font-medium text-sm">Settings</h3>
+                <h3 className="font-medium text-sm text-primary">Settings</h3>
                 <button onClick={() => setShowSettings(false)} className="text-secondary hover:text-primary">
                   <X className="w-4 h-4" />
                 </button>
@@ -205,8 +171,7 @@ export default function App() {
               <div className="space-y-4">
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium flex items-center gap-2">Theme</span>
-                    <span className="text-[10px] text-muted border border-subtle px-1 rounded">T</span>
+                    <span className="text-sm font-medium text-primary flex items-center gap-2">Theme</span>
                   </div>
                   <div className="segmented-control w-full flex">
                     <div 
@@ -225,13 +190,10 @@ export default function App() {
                 </div>
 
                 <div className="border-t border-subtle pt-4">
-                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium flex items-center gap-2">Admin Tools</span>
-                  </div>
                   <div className="segmented-control w-full flex">
                      <div 
                       onClick={() => { setIsAdminOpen(true); setShowSettings(false); }}
-                      className="flex-1 text-center segmented-item hover:bg-surface-card"
+                      className="flex-1 text-center segmented-item text-secondary hover:text-primary"
                     >
                       Unlock Admin
                     </div>
@@ -242,71 +204,61 @@ export default function App() {
           )}
         </AnimatePresence>
       </div>
-    </div>
-  );
 
-  return (
-    <div className="min-h-screen bg-[var(--app-bg)] text-[var(--text-primary)] flex items-center justify-center p-0 sm:p-4 md:p-8 transition-colors duration-300 font-sans" id="app-root-container">
+      {/* Main Content Area */}
+      <main className="w-full max-w-[1200px] mx-auto min-h-screen px-4 sm:px-8 py-8 pb-32">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={isAdminOpen ? 'admin' : activeTab}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.15 }}
+          >
+            {isAdminOpen ? (
+              <Admin onClose={() => {
+                setIsAdminOpen(false);
+                fetchData();
+              }} />
+            ) : activeTab === 'dashboard' ? (
+              <Dashboard
+                stats={stats}
+                activities={activities}
+                onNavigateToHistory={() => setActiveTab('history')}
+              />
+            ) : activeTab === 'chat' ? (
+              <Chat
+                chatHistory={chatHistory}
+                onSendMessage={handleSendMessage}
+                onClearHistory={handleClearChatHistory}
+                isSending={isSending}
+                onClose={() => setActiveTab('dashboard')}
+              />
+            ) : activeTab === 'activity_detail' && selectedActivityId ? (
+              <ActivityDetail
+                activity={activities.find(a => a.id === selectedActivityId)!}
+                onBack={() => setActiveTab('history')}
+              />
+            ) : (
+              <History
+                activities={activities}
+                onUploadTcx={handleUploadTcx}
+                isUploading={isUploading}
+                uploadError={uploadError}
+                uploadSuccess={uploadSuccess}
+                onActivitySelect={(id) => {
+                  setSelectedActivityId(id);
+                  setActiveTab('activity_detail');
+                }}
+              />
+            )}
+          </motion.div>
+        </AnimatePresence>
+      </main>
 
-      {/* MacOS Window Container */}
-      <div className="w-full max-w-[1200px] h-[100dvh] sm:h-[90vh] mac-window flex flex-col relative rounded-none sm:rounded-2xl">
-        <WindowTitleBar />
-
-        {/* Content Area */}
-        <main className="flex-1 overflow-y-auto px-4 sm:px-8 py-8">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={isAdminOpen ? 'admin' : activeTab}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.15 }}
-            >
-              {isAdminOpen ? (
-                <Admin onClose={() => {
-                  setIsAdminOpen(false);
-                  fetchData();
-                }} />
-              ) : activeTab === 'dashboard' ? (
-                <Dashboard
-                  stats={stats}
-                  activities={activities}
-                  onNavigateToHistory={() => setActiveTab('history')}
-                />
-              ) : activeTab === 'chat' ? (
-                <Chat
-                  chatHistory={chatHistory}
-                  onSendMessage={handleSendMessage}
-                  onClearHistory={handleClearChatHistory}
-                  isSending={isSending}
-                  onClose={() => setActiveTab('dashboard')}
-                />
-              ) : activeTab === 'activity_detail' && selectedActivityId ? (
-                <ActivityDetail
-                  activity={activities.find(a => a.id === selectedActivityId)!}
-                  onBack={() => setActiveTab('history')}
-                />
-              ) : (
-                <History
-                  activities={activities}
-                  onUploadTcx={handleUploadTcx}
-                  isUploading={isUploading}
-                  uploadError={uploadError}
-                  uploadSuccess={uploadSuccess}
-                  onActivitySelect={(id) => {
-                    setSelectedActivityId(id);
-                    setActiveTab('activity_detail');
-                  }}
-                />
-              )}
-            </motion.div>
-          </AnimatePresence>
-        </main>
-      </div>
-
-      {/* Mobile Bottom Navigation (Hidden on desktop since we have top tabs) */}
-      <div className="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-[1500] w-[90%] max-w-[320px]">
-        <nav className="relative flex items-center justify-around mac-popover px-2 h-16 transition-all duration-300">
+      {/* Floating Bottom Navigation */}
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[1500] w-[90%] max-w-[320px]">
+        <nav className="relative flex items-center justify-around mac-popover px-2 h-16 transition-all duration-300 rounded-full border border-subtle shadow-popover">
           {[
             { id: 'dashboard', icon: Grid, label: 'Home' },
             { id: 'history', icon: Calendar, label: 'Storico' },
@@ -324,10 +276,10 @@ export default function App() {
                 {isActive && (
                   <motion.div
                     layoutId="mobile-nav"
-                    className="absolute inset-2 bg-surface-inset border border-subtle rounded-xl"
+                    className="absolute inset-2 bg-surface-inset rounded-full shadow-sm"
                   />
                 )}
-                <Icon className={`relative z-10 w-5 h-5 ${isActive ? 'text-primary' : 'text-secondary'}`} />
+                <Icon className={`relative z-10 w-5 h-5 ${isActive ? 'text-primary' : 'text-secondary hover:text-primary transition-colors'}`} />
               </button>
             );
           })}

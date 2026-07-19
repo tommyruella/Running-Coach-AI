@@ -6,8 +6,8 @@
   --color-neon-orange: #FF4500;
   --color-highdensity-bg: #0A0A0A;
   --color-highdensity-panel: #121212;
-  --font-sans: "Inter", "system-ui", "-apple-system", sans-serif;
-  --font-display: "Oswald", "system-ui", "-apple-system", sans-serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
 }
 
 /* ─────────────────────────────────────────────────────────────
