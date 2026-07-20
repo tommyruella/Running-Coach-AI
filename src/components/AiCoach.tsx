@@ -259,7 +259,7 @@ export default function AiCoach() {
           <div className="pt-4 pb-2 bg-[var(--window-bg)] relative group">
             <div 
               ref={scrollContainerRef}
-              className="flex gap-4 overflow-x-auto pb-6 snap-x snap-mandatory hide-scrollbar px-5 sm:px-6"
+              className="flex gap-4 overflow-x-auto pb-6 hide-scrollbar px-5 sm:px-6"
             >
               {/* Left spacer to align first card with content padding */}
               <div className="w-1 sm:w-2 shrink-0" />
@@ -274,7 +274,7 @@ export default function AiCoach() {
                   : `w-[260px] ${isToday ? 'border-accent-cyan shadow-sm bg-[var(--surface-popover)]' : 'border-subtle bg-[var(--surface-popover)]'}`;
 
                 return (
-                  <div key={d} className={`snap-start shrink-0 flex flex-col p-5 rounded-2xl border transition-colors ${cardClasses}`}>
+                  <div key={d} className={`shrink-0 flex flex-col p-5 rounded-2xl border transition-colors ${cardClasses}`}>
                     
                     {!isRest && (
                       <div className="flex justify-between items-center w-full mb-4">
