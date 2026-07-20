@@ -10,6 +10,7 @@ export default function AiCoach() {
   const [notes, setNotes] = useState('');
   const [showSettings, setShowSettings] = useState(false);
   const [expandedFeedback, setExpandedFeedback] = useState(false);
+  const [selectedDay, setSelectedDay] = useState<number>(new Date().getDay());
 
   const fetchPlanAndSettings = async () => {
     try {
@@ -98,6 +99,7 @@ export default function AiCoach() {
   })();
 
   const dayNames = ['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'];
+  const dayInitials = ['D', 'L', 'M', 'M', 'G', 'V', 'S'];
   const fullDayNames = ['Domenica', 'Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato'];
 
   return (
@@ -187,52 +189,95 @@ export default function AiCoach() {
             </div>
           </div>
 
-          {/* Weekly Workouts Horizontal Scroll */}
+          {/* Master/Detail Layout */}
           <div className="p-5 sm:p-6 bg-[var(--window-bg)]">
-            <div className="flex gap-4 overflow-x-auto pb-4 snap-x hide-scrollbar">
+            
+            {/* Top Mini Calendar Picker */}
+            <div className="flex justify-between items-center bg-[var(--surface-popover)] p-2 rounded-2xl border border-subtle mb-6 max-w-sm mx-auto shadow-sm">
               {[1, 2, 3, 4, 5, 6, 0].map((d) => {
+                const isSelected = selectedDay === d;
                 const workout = plan.workouts.find(w => w.dayOfWeek === d);
-                const isToday = new Date().getDay() === d;
-                
+                const hasRealWorkout = workout && workout.type !== 'Riposo';
+                const isCompleted = workout?.completedManually || workout?.linkedActivityId;
+
                 return (
-                  <div key={d} className={`snap-start min-w-[220px] sm:min-w-[260px] p-5 rounded-2xl border ${isToday ? 'border-accent-cyan shadow-sm bg-[var(--surface-popover)]' : 'border-subtle bg-[var(--surface-popover)]'} flex flex-col relative`}>
-                    {isToday && (
-                      <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-accent-cyan text-black text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full">
-                        Oggi
-                      </div>
+                  <button 
+                    key={d} 
+                    onClick={() => setSelectedDay(d)}
+                    className={`relative flex flex-col items-center justify-center w-10 h-11 rounded-xl transition-all ${isSelected ? 'bg-primary text-inverted shadow-md scale-105' : 'text-secondary hover:bg-[var(--surface-inset)] hover:text-primary'}`}
+                  >
+                    <span className="text-[11px] font-bold">{dayInitials[d]}</span>
+                    {hasRealWorkout && (
+                      <span className={`absolute bottom-1.5 w-1 h-1 rounded-full ${isCompleted ? 'bg-accent-lime' : isSelected ? 'bg-inverted opacity-70' : 'bg-accent-cyan'}`} />
                     )}
-                    <h4 className="text-[10px] uppercase font-bold tracking-widest text-muted mb-3 flex justify-between items-center">
-                      {fullDayNames[d]}
-                      {(workout?.completedManually || workout?.linkedActivityId) && <CheckCircle2 className="h-4 w-4 text-accent-lime" />}
-                    </h4>
-                    
-                    {workout ? (
-                      <div className="flex flex-col flex-1">
-                        <span className="text-base font-bold text-primary mb-1 leading-tight">{workout.type}</span>
-                        <div className="flex gap-2 mb-3">
-                          {workout.targetDistanceKm && <span className="text-[10px] font-bold text-secondary bg-[var(--surface-inset)] px-2 py-1 rounded-md">{workout.targetDistanceKm} km</span>}
-                          {workout.targetHrZone && <span className="text-[10px] font-bold text-accent-rose bg-accent-rose/10 px-2 py-1 rounded-md">{workout.targetHrZone}</span>}
-                        </div>
-                        <p className="text-[11px] text-muted font-medium mb-4 flex-1">{workout.description}</p>
-                        
-                        {!(workout.completedManually || workout.linkedActivityId) && workout.type !== 'Riposo' && (
-                          <button 
-                            onClick={() => handleMarkCompleted(workout.id)}
-                            className="mt-auto w-full py-2 bg-[var(--surface-inset)] hover:bg-[var(--surface-hover)] text-xs font-bold text-primary rounded-lg transition-colors border border-subtle"
-                          >
-                            Segna Fatto
-                          </button>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="flex flex-col flex-1 items-center justify-center text-center opacity-50">
-                        <span className="text-sm font-medium text-secondary">Riposo</span>
-                      </div>
-                    )}
-                  </div>
+                  </button>
                 );
               })}
             </div>
+
+            {/* Detail Focus Area */}
+            {(() => {
+              const workout = plan.workouts.find(w => w.dayOfWeek === selectedDay);
+              const isToday = new Date().getDay() === selectedDay;
+              const isCompleted = workout?.completedManually || workout?.linkedActivityId;
+              const isRest = !workout || workout.type === 'Riposo';
+
+              return (
+                <div className={`relative max-w-lg mx-auto p-6 sm:p-8 rounded-[2rem] border ${isToday ? 'border-accent-cyan bg-[var(--surface-popover)] shadow-lg' : 'border-subtle bg-[var(--surface-popover)] shadow-md'}`}>
+                  {isToday && (
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-accent-cyan text-black text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full shadow-sm">
+                      Oggi
+                    </div>
+                  )}
+                  
+                  <div className="flex justify-between items-center mb-6">
+                    <h4 className="text-sm font-bold text-muted uppercase tracking-widest">{fullDayNames[selectedDay]}</h4>
+                    {isCompleted && <div className="flex items-center gap-1.5 bg-accent-lime/10 text-accent-lime px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider"><CheckCircle2 className="h-3.5 w-3.5" /> Completato</div>}
+                  </div>
+
+                  {isRest ? (
+                    <div className="py-10 flex flex-col items-center text-center opacity-50">
+                      <span className="text-2xl font-bold text-secondary mb-2">Riposo</span>
+                      <p className="text-xs font-medium text-muted">Nessun allenamento programmato per oggi.</p>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col">
+                      <h2 className="text-3xl sm:text-4xl font-black text-primary leading-tight mb-4 tracking-tight">{workout.type}</h2>
+                      
+                      <div className="flex flex-wrap gap-3 mb-6">
+                        {workout.targetDistanceKm && (
+                          <div className="bg-[var(--surface-inset)] px-4 py-2.5 rounded-xl border border-subtle">
+                            <span className="block text-[9px] text-muted uppercase tracking-widest font-bold mb-0.5">Distanza</span>
+                            <span className="text-xl font-bold text-primary font-mono">{workout.targetDistanceKm} <span className="text-xs text-secondary font-sans font-medium">km</span></span>
+                          </div>
+                        )}
+                        {workout.targetHrZone && (
+                          <div className="bg-accent-rose/5 px-4 py-2.5 rounded-xl border border-accent-rose/20">
+                            <span className="block text-[9px] text-accent-rose/70 uppercase tracking-widest font-bold mb-0.5">Zona Target</span>
+                            <span className="text-xl font-bold text-accent-rose font-mono">{workout.targetHrZone}</span>
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="bg-[var(--surface-inset)] p-4 rounded-xl border border-subtle mb-6">
+                        <p className="text-sm text-secondary font-medium leading-relaxed">{workout.description}</p>
+                      </div>
+                      
+                      {!isCompleted && (
+                        <button 
+                          onClick={() => handleMarkCompleted(workout.id)}
+                          className="w-full py-3.5 bg-primary hover:scale-[1.02] active:scale-[0.98] text-inverted text-sm font-bold rounded-xl transition-all shadow-md uppercase tracking-widest flex items-center justify-center gap-2"
+                        >
+                          <CheckCircle2 className="h-4 w-4" />
+                          Segna come Fatto
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
           </div>
         </div>
       ) : null}
