@@ -1,0 +1,242 @@
+import React, { useState, useEffect } from 'react';
+import { Bot, Calendar, CheckCircle2, ChevronDown, ChevronUp, Play, Settings, Loader2 } from 'lucide-react';
+import { WeeklyPlan, PlannedWorkout, CoachSettings } from '../types.js';
+
+export default function AiCoach() {
+  const [plan, setPlan] = useState<WeeklyPlan | null>(null);
+  const [settings, setSettings] = useState<CoachSettings>({ availableDays: [0, 2, 4, 6] });
+  const [loading, setLoading] = useState(true);
+  const [generating, setGenerating] = useState(false);
+  const [notes, setNotes] = useState('');
+  const [showSettings, setShowSettings] = useState(false);
+  const [expandedFeedback, setExpandedFeedback] = useState(false);
+
+  const fetchPlanAndSettings = async () => {
+    try {
+      const [planRes, setRes] = await Promise.all([
+        fetch('/api/coach/plan'),
+        fetch('/api/coach/settings')
+      ]);
+      const p = await planRes.json();
+      const s = await setRes.json();
+      setPlan(p);
+      setSettings(s);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPlanAndSettings();
+  }, []);
+
+  const handleGenerate = async () => {
+    setGenerating(true);
+    try {
+      const res = await fetch('/api/coach/generate-plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notes })
+      });
+      const newPlan = await res.json();
+      setPlan(newPlan);
+      setNotes('');
+    } catch (e) {
+      console.error(e);
+      alert('Errore durante la generazione del piano.');
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const handleSaveSettings = async (days: number[]) => {
+    try {
+      await fetch('/api/coach/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ availableDays: days })
+      });
+      setSettings({ availableDays: days });
+      setShowSettings(false);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleMarkCompleted = async (workoutId: string) => {
+    try {
+      await fetch('/api/coach/link-activity', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plannedWorkoutId: workoutId, completedManually: true })
+      });
+      // Aggiorna UI localmente
+      if (plan) {
+        setPlan({
+          ...plan,
+          workouts: plan.workouts.map(w => 
+            w.id === workoutId ? { ...w, completedManually: true } : w
+          )
+        });
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  if (loading) {
+    return <div className="h-40 flex items-center justify-center"><Loader2 className="animate-spin text-muted h-6 w-6" /></div>;
+  }
+
+  const isNewWeek = !plan || (() => {
+    const today = new Date();
+    const day = today.getDay();
+    const diff = today.getDate() - day + (day === 0 ? -6 : 1);
+    const monday = new Date(today.setDate(diff)).toISOString().split('T')[0];
+    return plan.weekStartDate !== monday;
+  })();
+
+  const dayNames = ['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'];
+  const fullDayNames = ['Domenica', 'Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato'];
+
+  return (
+    <div className="clean-panel flex flex-col overflow-hidden relative">
+      <div className="p-5 sm:p-6 border-b border-subtle flex justify-between items-start bg-[var(--surface-inset)]">
+        <div>
+          <h2 className="text-xl font-black text-primary tracking-tight flex items-center gap-2">
+            <Bot className="h-6 w-6 text-accent-cyan" />
+            AI Coach <span className="text-xs font-bold text-accent-cyan uppercase tracking-widest ml-2 bg-accent-cyan/10 px-2 py-0.5 rounded-full">Mezza Ottobre</span>
+          </h2>
+          <p className="text-xs text-secondary mt-1 font-medium">Piano strutturato per il passo 4:50 - 5:10/km</p>
+        </div>
+        <button onClick={() => setShowSettings(!showSettings)} className="p-2 hover:bg-[var(--surface-hover)] rounded-full transition-colors">
+          <Settings className="h-5 w-5 text-muted" />
+        </button>
+      </div>
+
+      {showSettings && (
+        <div className="p-5 bg-[var(--surface-popover)] border-b border-subtle">
+          <h3 className="text-sm font-bold text-primary mb-3">Giorni di Allenamento</h3>
+          <div className="flex flex-wrap gap-2">
+            {[1, 2, 3, 4, 5, 6, 0].map(d => {
+              const isActive = settings.availableDays.includes(d);
+              return (
+                <button 
+                  key={d}
+                  onClick={() => {
+                    const newDays = isActive 
+                      ? settings.availableDays.filter(day => day !== d)
+                      : [...settings.availableDays, d];
+                    handleSaveSettings(newDays);
+                  }}
+                  className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${
+                    isActive ? 'bg-primary text-inverted' : 'bg-[var(--surface-inset)] text-muted hover:text-primary'
+                  }`}
+                >
+                  {fullDayNames[d]}
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-[10px] text-muted mt-3">L'IA posizionerà le corse solo nei giorni selezionati.</p>
+        </div>
+      )}
+
+      {isNewWeek ? (
+        <div className="p-6 sm:p-8 flex flex-col items-center justify-center text-center">
+          <Calendar className="h-12 w-12 text-muted mb-4 opacity-50" />
+          <h3 className="text-lg font-bold text-primary mb-2">Nuova Settimana</h3>
+          <p className="text-sm text-secondary max-w-md mx-auto mb-6">È il momento di pianificare i prossimi allenamenti. Il coach analizzerà i dati dei tuoi ultimi 30 giorni e adatterà il carico di lavoro.</p>
+          
+          <textarea 
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Note per il coach? (es. 'Giovedì ho un viaggio', 'Ho le gambe pesanti')"
+            className="w-full max-w-md bg-[var(--surface-inset)] border border-subtle rounded-xl p-3 text-sm text-primary placeholder:text-muted focus:outline-none focus:border-accent-cyan mb-4 resize-none h-20 transition-colors"
+          />
+          
+          <button 
+            onClick={handleGenerate}
+            disabled={generating}
+            className="bg-primary text-inverted px-6 py-3 rounded-full text-sm font-bold uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-transform disabled:opacity-50 flex items-center gap-2 shadow-lg mx-auto"
+          >
+            {generating ? (
+              <><Loader2 className="animate-spin h-4 w-4" /> Generazione in corso...</>
+            ) : (
+              <><Play className="h-4 w-4" /> Genera Piano</>
+            )}
+          </button>
+        </div>
+      ) : plan ? (
+        <div className="flex flex-col">
+          {/* Analysis Feedback */}
+          <div className="p-5 sm:p-6 border-b border-subtle">
+            <h3 className="text-lg font-black text-primary mb-1">Tema: {plan.theme}</h3>
+            <div 
+              className="mt-3 bg-[var(--window-bg)] p-4 rounded-xl border border-subtle relative cursor-pointer group"
+              onClick={() => setExpandedFeedback(!expandedFeedback)}
+            >
+              <h4 className="text-[10px] uppercase font-bold tracking-widest text-muted mb-2">Analisi del Coach</h4>
+              <p className={`text-sm text-secondary font-medium leading-relaxed ${expandedFeedback ? '' : 'line-clamp-2'}`}>
+                {plan.analysisFeedback}
+              </p>
+              <div className="absolute top-4 right-4 text-muted group-hover:text-primary transition-colors">
+                {expandedFeedback ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </div>
+            </div>
+          </div>
+
+          {/* Weekly Workouts Horizontal Scroll */}
+          <div className="p-5 sm:p-6 bg-[var(--window-bg)]">
+            <div className="flex gap-4 overflow-x-auto pb-4 snap-x hide-scrollbar">
+              {[1, 2, 3, 4, 5, 6, 0].map((d) => {
+                const workout = plan.workouts.find(w => w.dayOfWeek === d);
+                const isToday = new Date().getDay() === d;
+                
+                return (
+                  <div key={d} className={`snap-start min-w-[220px] sm:min-w-[260px] p-5 rounded-2xl border ${isToday ? 'border-accent-cyan shadow-sm bg-[var(--surface-popover)]' : 'border-subtle bg-[var(--surface-popover)]'} flex flex-col relative`}>
+                    {isToday && (
+                      <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-accent-cyan text-black text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full">
+                        Oggi
+                      </div>
+                    )}
+                    <h4 className="text-[10px] uppercase font-bold tracking-widest text-muted mb-3 flex justify-between items-center">
+                      {fullDayNames[d]}
+                      {(workout?.completedManually || workout?.linkedActivityId) && <CheckCircle2 className="h-4 w-4 text-accent-lime" />}
+                    </h4>
+                    
+                    {workout ? (
+                      <div className="flex flex-col flex-1">
+                        <span className="text-base font-bold text-primary mb-1 leading-tight">{workout.type}</span>
+                        <div className="flex gap-2 mb-3">
+                          {workout.targetDistanceKm && <span className="text-[10px] font-bold text-secondary bg-[var(--surface-inset)] px-2 py-1 rounded-md">{workout.targetDistanceKm} km</span>}
+                          {workout.targetHrZone && <span className="text-[10px] font-bold text-accent-rose bg-accent-rose/10 px-2 py-1 rounded-md">{workout.targetHrZone}</span>}
+                        </div>
+                        <p className="text-[11px] text-muted font-medium mb-4 flex-1">{workout.description}</p>
+                        
+                        {!(workout.completedManually || workout.linkedActivityId) && workout.type !== 'Riposo' && (
+                          <button 
+                            onClick={() => handleMarkCompleted(workout.id)}
+                            className="mt-auto w-full py-2 bg-[var(--surface-inset)] hover:bg-[var(--surface-hover)] text-xs font-bold text-primary rounded-lg transition-colors border border-subtle"
+                          >
+                            Segna Fatto
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="flex flex-col flex-1 items-center justify-center text-center opacity-50">
+                        <span className="text-sm font-medium text-secondary">Riposo</span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}

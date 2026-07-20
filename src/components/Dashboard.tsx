@@ -16,6 +16,7 @@ import {
   CartesianGrid,
 } from 'recharts';
 import { Activity as ActivityType, RunningStats } from '../types.js';
+import AiCoach from './AiCoach';
 
 interface DashboardProps {
   stats: RunningStats;
@@ -379,6 +380,9 @@ export default function Dashboard({ activities, onNavigateToHistory, onSecretUnl
           </div>
         )}
       </div>
+
+      {/* AI Coach Section */}
+      <AiCoach />
 
       {/* Analytics Section */}
       <div className="pt-6 border-t border-subtle space-y-6">

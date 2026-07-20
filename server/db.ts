@@ -296,3 +296,54 @@ export async function getTrainingPlans(): Promise<any[]> {
 export async function saveTrainingPlan(plan: any): Promise<void> {
   // Not implemented in DB yet, plans are saved as chat history
 }
+
+import { WeeklyPlan, CoachSettings } from '../src/types.js';
+
+const COACH_SETTINGS_FILE = path.join(DATA_DIR, 'coach_settings.json');
+const WEEKLY_PLANS_FILE = path.join(DATA_DIR, 'weekly_plans.json');
+
+export async function getCoachSettings(): Promise<CoachSettings> {
+  try {
+    if (!fs.existsSync(COACH_SETTINGS_FILE)) {
+      // Default: Lunedì (1), Mercoledì (3), Giovedì (4), Sabato (6), Domenica (0) ecc.
+      // Let's set a reasonable default: Tue (2), Thu (4), Sat (6), Sun (0)
+      return { availableDays: [0, 2, 4, 6] };
+    }
+    const data = await fs.promises.readFile(COACH_SETTINGS_FILE, 'utf-8');
+    return JSON.parse(data);
+  } catch (error) {
+    console.error('Error reading coach settings:', error);
+    return { availableDays: [0, 2, 4, 6] };
+  }
+}
+
+export async function saveCoachSettings(settings: CoachSettings): Promise<void> {
+  try {
+    if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+    await fs.promises.writeFile(COACH_SETTINGS_FILE, JSON.stringify(settings, null, 2));
+  } catch (error) {
+    console.error('Error saving coach settings:', error);
+  }
+}
+
+export async function getWeeklyPlans(): Promise<WeeklyPlan[]> {
+  try {
+    if (!fs.existsSync(WEEKLY_PLANS_FILE)) {
+      return [];
+    }
+    const data = await fs.promises.readFile(WEEKLY_PLANS_FILE, 'utf-8');
+    return JSON.parse(data);
+  } catch (error) {
+    console.error('Error reading weekly plans:', error);
+    return [];
+  }
+}
+
+export async function saveWeeklyPlans(plans: WeeklyPlan[]): Promise<void> {
+  try {
+    if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+    await fs.promises.writeFile(WEEKLY_PLANS_FILE, JSON.stringify(plans, null, 2));
+  } catch (error) {
+    console.error('Error saving weekly plans:', error);
+  }
+}

@@ -22,7 +22,11 @@ import {
   saveTrainingPlan,
   initializeDb,
   TCX_DIR,
-  fetchWeather
+  fetchWeather,
+  getCoachSettings,
+  saveCoachSettings,
+  getWeeklyPlans,
+  saveWeeklyPlans
 } from './server/db.js';
 import { supabaseAdmin } from './server/supabaseClient.js';
 import { ChatMessage, Activity } from './src/types.js';
@@ -445,6 +449,209 @@ app.post('/api/chat', async (req, res) => {
 
   } catch (error: any) {
     console.error('Chat error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+/**
+ * 7. API: AI Coach Routes
+ */
+app.get('/api/coach/settings', async (req, res) => {
+  try {
+    const settings = await getCoachSettings();
+    res.json(settings);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/coach/settings', async (req, res) => {
+  try {
+    const { availableDays } = req.body;
+    await saveCoachSettings({ availableDays });
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/coach/plan', async (req, res) => {
+  try {
+    const plans = await getWeeklyPlans();
+    // Return the latest plan if any exists
+    if (plans.length > 0) {
+      const sortedPlans = [...plans].sort((a, b) => new Date(b.weekStartDate).getTime() - new Date(a.weekStartDate).getTime());
+      res.json(sortedPlans[0]);
+    } else {
+      res.json(null);
+    }
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/coach/link-activity', async (req, res) => {
+  try {
+    const { plannedWorkoutId, activityId, completedManually } = req.body;
+    
+    const plans = await getWeeklyPlans();
+    let updated = false;
+    for (const plan of plans) {
+      const workout = plan.workouts.find(w => w.id === plannedWorkoutId);
+      if (workout) {
+        if (completedManually) {
+          workout.completedManually = true;
+        }
+        if (activityId) {
+          workout.linkedActivityId = activityId;
+        }
+        updated = true;
+        break;
+      }
+    }
+    
+    if (updated) {
+      await saveWeeklyPlans(plans);
+    }
+    
+    if (activityId && !completedManually) {
+      const activities = await getActivities();
+      const activity = activities.find(a => a.id === activityId);
+      if (activity) {
+        activity.plannedWorkoutId = plannedWorkoutId;
+        // Upserting via Supabase helper since we imported saveActivities
+        const { saveActivities } = await import('./server/db.js');
+        await saveActivities([activity]); 
+      }
+    }
+    
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/coach/generate-plan', async (req, res) => {
+  try {
+    const { notes } = req.body;
+    
+    const settings = await getCoachSettings();
+    const activities = await getActivities();
+    
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const recentActivities = activities.filter(a => new Date(a.date) >= thirtyDaysAgo);
+    
+    let totalKm = 0;
+    let paceSecondsSum = 0;
+    let paceCount = 0;
+    
+    recentActivities.forEach(act => {
+      totalKm += act.distanceKm;
+      if (act.avgPace && act.avgPace.includes(':')) {
+        const [min, sec] = act.avgPace.split(':').map(Number);
+        if (!isNaN(min) && !isNaN(sec)) {
+          paceSecondsSum += (min * 60 + sec) * act.distanceKm;
+          paceCount += act.distanceKm;
+        }
+      }
+    });
+    
+    let avgPaceStr = 'N/A';
+    if (paceCount > 0) {
+      const avgPaceSec = paceSecondsSum / paceCount;
+      const min = Math.floor(avgPaceSec / 60);
+      const sec = Math.round(avgPaceSec % 60);
+      avgPaceStr = `${min}:${sec.toString().padStart(2, '0')}`;
+    }
+    
+    const weeklyAvgKm = (totalKm / 4).toFixed(1);
+    
+    const plans = await getWeeklyPlans();
+    const sortedPlans = [...plans].sort((a, b) => new Date(b.weekStartDate).getTime() - new Date(a.weekStartDate).getTime());
+    const lastPlan = sortedPlans.length > 0 ? sortedPlans[0] : null;
+    
+    let lastWeekContext = "Questo è il primo piano generato dall'IA.";
+    if (lastPlan) {
+      lastWeekContext = "Il piano della settimana precedente era:\\n" + JSON.stringify(lastPlan.workouts.map(w => ({
+        day: w.dayOfWeek,
+        type: w.type,
+        distance: w.targetDistanceKm,
+        completed: w.completedManually || !!w.linkedActivityId
+      })), null, 2);
+    }
+
+    const dayNames = ['Domenica', 'Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato'];
+    const availableDaysNames = settings.availableDays.map(d => dayNames[d]).join(', ');
+
+    const prompt = `
+Sei un allenatore professionista di corsa. Devi generare il piano di allenamento per la prossima settimana.
+Obiettivo dell'atleta: Mezza Maratona a Ottobre.
+Passo gara target: 4:50 - 5:10 min/km (4 alto, 5 basso).
+
+STATO ATTUALE DELL'ATLETA:
+Negli ultimi 30 giorni ha corso in media ${weeklyAvgKm} km a settimana, con un passo medio di ${avgPaceStr} min/km.
+
+GIORNI DISPONIBILI PER ALLENARSI QUESTA SETTIMANA:
+L'utente può correre SOLO nei seguenti giorni: ${availableDaysNames}. Negli altri giorni assegna rigorosamente "Riposo" o "Core Stability".
+
+CONTESTO SETTIMANA PRECEDENTE:
+${lastWeekContext}
+
+NOTE DELL'UTENTE PER QUESTA SETTIMANA:
+${notes ? notes : 'Nessuna nota particolare.'}
+
+DEVI RISPONDERE ESCLUSIVAMENTE CON UN OGGETTO JSON VALIDO. NESSUN TESTO EXTRA O BLOCCHI MARKDOWN.
+La struttura JSON deve essere questa:
+{
+  "theme": "string, es. 'Costruzione Aerobica' o 'Settimana di Scarico'",
+  "analysisFeedback": "string, massimo 3 frasi di feedback/analisi motivazionale",
+  "workouts": [
+    {
+      "dayOfWeek": number, /* 0 per Dom, 1 per Lun... da 0 a 6 per tutti e 7 i giorni */
+      "type": "string, es. 'Fondo Lento', 'Fartlek', 'Riposo'",
+      "targetDistanceKm": "string, es. '8-10' o null",
+      "targetHrZone": "string, es. 'Z2' o null",
+      "description": "string, spiegazione tecnica del focus (molto concisa)"
+    }
+  ]
+}`;
+
+    const today = new Date();
+    const day = today.getDay();
+    const diff = today.getDate() - day + (day === 0 ? -6 : 1);
+    const monday = new Date(today.setDate(diff));
+    const weekStartDate = monday.toISOString().split('T')[0];
+
+    const result = await ai.models.generateContent({
+      model: 'gemini-3.5-flash',
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      config: {
+        responseMimeType: 'application/json',
+        temperature: 0.2
+      }
+    });
+
+    const responseText = result.text || '{}';
+    const generatedPlan = JSON.parse(responseText);
+
+    const newPlan = {
+      id: `plan_${Date.now()}`,
+      weekStartDate,
+      theme: generatedPlan.theme || 'Piano Settimanale',
+      analysisFeedback: generatedPlan.analysisFeedback || '',
+      workouts: (generatedPlan.workouts || []).map((w: any) => ({
+        ...w,
+        id: `w_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+        completedManually: false
+      }))
+    };
+
+    plans.push(newPlan);
+    await saveWeeklyPlans(plans);
+
+    res.json(newPlan);
+  } catch (error: any) {
+    console.error('Generation Error:', error);
     res.status(500).json({ error: error.message });
   }
 });

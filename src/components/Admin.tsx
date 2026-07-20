@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Trash2, Edit2, Check, X, ShieldAlert } from 'lucide-react';
-import { Activity } from '../types.js';
+import { Activity, WeeklyPlan } from '../types.js';
 
 interface AdminProps {
   onClose: () => void;
@@ -11,11 +11,24 @@ export default function Admin({ onClose }: AdminProps) {
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
+  const [linkWorkoutId, setLinkWorkoutId] = useState('');
+  const [plan, setPlan] = useState<WeeklyPlan | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchActivities();
+    fetchPlan();
   }, []);
+
+  const fetchPlan = async () => {
+    try {
+      const res = await fetch('/api/coach/plan');
+      const data = await res.json();
+      setPlan(data);
+    } catch (err) {
+      console.error('Failed to fetch plan', err);
+    }
+  };
 
   const fetchActivities = async () => {
     try {
@@ -51,18 +64,30 @@ export default function Admin({ onClose }: AdminProps) {
 
   const handleRename = async (id: string) => {
     if (!editName.trim()) return;
+
     try {
+      // Update name
       const res = await fetch(`/api/activities/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: editName.trim() })
       });
       if (res.ok) {
-        setActivities(prev => prev.map(a => a.id === id ? { ...a, name: editName.trim() } : a));
-        setEditingId(null);
+        setActivities(prev => prev.map(a => a.id === id ? { ...a, name: editName.trim(), plannedWorkoutId: linkWorkoutId || undefined } : a));
       } else {
         throw new Error('Rename failed');
       }
+
+      // If linking workout
+      if (linkWorkoutId) {
+        await fetch('/api/coach/link-activity', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ plannedWorkoutId: linkWorkoutId, activityId: id })
+        });
+      }
+
+      setEditingId(null);
     } catch (err) {
       console.error(err);
       alert('Errore durante la rinominazione.');
@@ -112,21 +137,40 @@ export default function Admin({ onClose }: AdminProps) {
                       {new Date(activity.date).toLocaleDateString('it-IT', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                     </div>
                     {editingId === activity.id ? (
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="text"
-                          value={editName}
-                          onChange={(e) => setEditName(e.target.value)}
-                          className="bg-surface-card border border-accent-rose/50 rounded-lg px-3 py-1.5 text-sm text-primary focus:outline-none focus:border-accent-rose w-full shadow-sm"
-                          autoFocus
-                          onKeyDown={(e) => e.key === 'Enter' && handleRename(activity.id)}
-                        />
-                        <button onClick={() => handleRename(activity.id)} className="p-1.5 bg-green-500/10 text-green-600 dark:text-green-400 rounded-lg hover:bg-green-500/20">
-                          <Check className="w-4 h-4" />
-                        </button>
-                        <button onClick={() => setEditingId(null)} className="p-1.5 bg-surface-card border border-subtle text-secondary rounded-lg hover:bg-surface-inset">
-                          <X className="w-4 h-4" />
-                        </button>
+                      <div className="flex flex-col gap-2 w-full mt-2">
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={editName}
+                            onChange={(e) => setEditName(e.target.value)}
+                            className="bg-surface-card border border-accent-rose/50 rounded-lg px-3 py-1.5 text-sm text-primary focus:outline-none focus:border-accent-rose w-full shadow-sm"
+                            autoFocus
+                            onKeyDown={(e) => e.key === 'Enter' && handleRename(activity.id)}
+                            placeholder="Nome attività"
+                          />
+                          <button onClick={() => handleRename(activity.id)} className="p-1.5 bg-green-500/10 text-green-600 dark:text-green-400 rounded-lg hover:bg-green-500/20 shrink-0">
+                            <Check className="w-4 h-4" />
+                          </button>
+                          <button onClick={() => setEditingId(null)} className="p-1.5 bg-surface-card border border-subtle text-secondary rounded-lg hover:bg-surface-inset shrink-0">
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                        {plan && plan.workouts.length > 0 && (
+                          <div className="flex items-center gap-2 mt-1">
+                            <select
+                              value={linkWorkoutId}
+                              onChange={(e) => setLinkWorkoutId(e.target.value)}
+                              className="bg-surface-card border border-subtle rounded-lg px-3 py-1.5 text-xs text-primary focus:outline-none focus:border-accent-cyan w-full max-w-[200px]"
+                            >
+                              <option value="">-- Associa al piano --</option>
+                              {plan.workouts.map(w => (
+                                <option key={w.id} value={w.id}>
+                                  {w.type} ({w.targetDistanceKm ? `${w.targetDistanceKm} km` : w.targetHrZone})
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <div className="font-bold text-primary truncate">{activity.name}</div>

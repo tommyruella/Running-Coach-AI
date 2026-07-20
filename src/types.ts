@@ -47,6 +47,7 @@ export interface Activity {
   laps?: Lap[];
   notes?: string;
   trackpoints?: Trackpoint[];
+  plannedWorkoutId?: string; // Link to AI Coach weekly plan workout
 }
 
 export interface ChatMessage {
@@ -64,4 +65,27 @@ export interface RunningStats {
   totalDurationHours: number;
   avgPace: string; // Format "MM:SS"
   avgHr: number;
+}
+
+export interface PlannedWorkout {
+  id: string;
+  dayOfWeek: number; // 0 = Domenica, 1 = Lunedì, ecc.
+  type: string; // "Fondo Lento", "Fartlek", ecc.
+  targetDistanceKm?: string; // Es. "10 - 12"
+  targetHrZone?: string; // Es. "Z2"
+  description: string;
+  completedManually: boolean;
+  linkedActivityId?: string; // ID dell'Activity reale se completata con GPS
+}
+
+export interface WeeklyPlan {
+  id: string;
+  weekStartDate: string; // "YYYY-MM-DD" del lunedì
+  theme: string;
+  analysisFeedback: string;
+  workouts: PlannedWorkout[];
+}
+
+export interface CoachSettings {
+  availableDays: number[]; // Array of days, es. [1, 3, 5, 0] per Lun, Mer, Ven, Dom
 }
