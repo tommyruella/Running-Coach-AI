@@ -680,14 +680,27 @@ La struttura JSON deve essere questa:
     const monday = new Date(today.setDate(diff));
     const weekStartDate = monday.toISOString().split('T')[0];
 
-    const result = await ai.models.generateContent({
-      model: 'gemini-3.5-flash',
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      config: {
-        responseMimeType: 'application/json',
-        temperature: 0.2
-      }
-    });
+    let result;
+    try {
+      result = await ai.models.generateContent({
+        model: 'gemini-3.5-flash',
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        config: {
+          responseMimeType: 'application/json',
+          temperature: 0.2
+        }
+      });
+    } catch (apiError: any) {
+      console.warn('gemini-3.5-flash failed, falling back to gemini-2.5-flash. Error:', apiError.message);
+      result = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        config: {
+          responseMimeType: 'application/json',
+          temperature: 0.2
+        }
+      });
+    }
 
     const responseText = result.text || '{}';
     const generatedPlan = JSON.parse(responseText);
