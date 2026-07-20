@@ -697,6 +697,7 @@ La struttura JSON deve essere questa:
       weekStartDate,
       theme: generatedPlan.theme || 'Piano Settimanale',
       analysisFeedback: generatedPlan.analysisFeedback || '',
+      tips: generatedPlan.tips || [],
       workouts: (generatedPlan.workouts || []).map((w: any) => ({
         ...w,
         id: `w_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
