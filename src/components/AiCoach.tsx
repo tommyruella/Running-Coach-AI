@@ -60,8 +60,11 @@ export default function AiCoach() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ notes })
       });
-      const newPlan = await res.json();
-      setPlan(newPlan);
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Errore nella generazione del piano');
+      }
+      setPlan(data);
       setNotes('');
     } catch (e) {
       console.error(e);
