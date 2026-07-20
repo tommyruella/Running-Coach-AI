@@ -3,7 +3,7 @@
 
 @theme {
   --color-lime-accent: #CCFF00;
-  --color-neon-orange: #FF4500;
+  --color-neon-orange: #FF5B4F;
   --color-highdensity-bg: #0A0A0A;
   --color-highdensity-panel: #121212;
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
@@ -15,68 +15,76 @@
 ───────────────────────────────────────────────────────────── */
 :root {
   /* Surfaces - Default (Dark Mode) */
-  --app-bg:            #1a1a1a; /* The very background outside the window */
-  --window-bg:         #242424; /* The main window background */
-  --surface-card:      #2d2d2d; /* Solid card background */
-  --surface-card-alt:  #333333;
-  --surface-popover:   rgba(45, 45, 45, 0.85); /* Translucent popover */
-  --surface-inset:     #1e1e1e;
+  --app-bg: #1a1a1a;
+  /* The very background outside the window */
+  --window-bg: #242424;
+  /* The main window background */
+  --surface-card: #2d2d2d;
+  /* Solid card background */
+  --surface-card-alt: #333333;
+  --surface-popover: rgba(45, 45, 45, 0.85);
+  /* Translucent popover */
+  --surface-inset: #1e1e1e;
 
   /* Borders */
-  --border-subtle:     rgba(255,255,255,0.06);
-  --border-default:    rgba(255,255,255,0.12);
-  --border-strong:     rgba(255,255,255,0.20);
-  --border-window:     rgba(255,255,255,0.10);
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --border-default: rgba(255, 255, 255, 0.12);
+  --border-strong: rgba(255, 255, 255, 0.20);
+  --border-window: rgba(255, 255, 255, 0.10);
 
   /* Text */
-  --text-primary:      #ffffff;
-  --text-secondary:    #a1a1aa;
-  --text-muted:        #71717a;
-  --text-faint:        #52525b;
+  --text-primary: #ffffff;
+  --text-secondary: #a1a1aa;
+  --text-muted: #71717a;
+  --text-faint: #52525b;
 
   /* Accents - Preserving the Athletic Neon Palette */
-  --accent-lime:       #CCFF00;
-  --accent-rose:       #FF4500;
-  --accent-cyan:       #22d3ee;
-  --accent-amber:      #fbbf24;
-  --accent-blue:       #60a5fa;
+  --accent-lime: #CCFF00;
+  --accent-rose: #FF5B4F;
+  --accent-cyan: #22d3ee;
+  --accent-amber: #fbbf24;
+  --accent-blue: #60a5fa;
 
   /* Shadows */
-  --shadow-window:     0 25px 50px -12px rgba(0, 0, 0, 0.5);
-  --shadow-popover:    0 10px 30px -5px rgba(0, 0, 0, 0.4);
+  --shadow-window: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  --shadow-popover: 0 10px 30px -5px rgba(0, 0, 0, 0.4);
 }
 
 body.light-theme {
   /* Surfaces - Bright Mode (MacOS Clean) */
-  --app-bg:            #e5e5e5; /* The very background outside the window */
-  --window-bg:         #ffffff; /* The main window background */
-  --surface-card:      #f4f4f5; /* Very light grey card, or white on white with border */
-  --surface-card-alt:  #e4e4e7;
-  --surface-popover:   rgba(255, 255, 255, 0.85); /* Translucent popover */
-  --surface-inset:     #f4f4f5;
+  --app-bg: #e5e5e5;
+  /* The very background outside the window */
+  --window-bg: #ffffff;
+  /* The main window background */
+  --surface-card: #f4f4f5;
+  /* Very light grey card, or white on white with border */
+  --surface-card-alt: #e4e4e7;
+  --surface-popover: rgba(255, 255, 255, 0.85);
+  /* Translucent popover */
+  --surface-inset: #f4f4f5;
 
   /* Borders */
-  --border-subtle:     rgba(0,0,0,0.04);
-  --border-default:    rgba(0,0,0,0.08);
-  --border-strong:     rgba(0,0,0,0.15);
-  --border-window:     rgba(0,0,0,0.10);
+  --border-subtle: rgba(0, 0, 0, 0.04);
+  --border-default: rgba(0, 0, 0, 0.08);
+  --border-strong: rgba(0, 0, 0, 0.15);
+  --border-window: rgba(0, 0, 0, 0.10);
 
   /* Text */
-  --text-primary:      #111111;
-  --text-secondary:    #52525b;
-  --text-muted:        #71717a;
-  --text-faint:        #a1a1aa;
+  --text-primary: #111111;
+  --text-secondary: #52525b;
+  --text-muted: #71717a;
+  --text-faint: #a1a1aa;
 
   /* Accents - Darkened slightly for contrast on bright background */
-  --accent-lime:       #65a30d;
-  --accent-rose:       #e11d48;
-  --accent-cyan:       #0891b2;
-  --accent-amber:      #d97706;
-  --accent-blue:       #2563eb;
+  --accent-lime: #65a30d;
+  --accent-rose: #e11d48;
+  --accent-cyan: #0891b2;
+  --accent-amber: #d97706;
+  --accent-blue: #2563eb;
 
   /* Shadows */
-  --shadow-window:     0 20px 40px -10px rgba(0, 0, 0, 0.1);
-  --shadow-popover:    0 10px 25px -5px rgba(0, 0, 0, 0.08);
+  --shadow-window: 0 20px 40px -10px rgba(0, 0, 0, 0.1);
+  --shadow-popover: 0 10px 25px -5px rgba(0, 0, 0, 0.08);
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -92,7 +100,7 @@ body.light-theme {
     box-shadow: var(--shadow-window);
     overflow: hidden;
     /* Optional: add a subtle inner highlight */
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), var(--shadow-window);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), var(--shadow-window);
   }
 
   /* The new clean flat card replacing the heavy glass-panel */
@@ -138,10 +146,11 @@ body.light-theme {
     transition: all 0.2s ease;
     color: var(--text-secondary);
   }
+
   .segmented-item.active {
     background: var(--surface-card);
     color: var(--text-primary);
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   }
 
   /* Legacy aliases to avoid breaking everything instantly, will be replaced */
@@ -157,20 +166,47 @@ body.light-theme {
   }
 
   /* Text helpers */
-  .text-primary   { color: var(--text-primary); }
-  .text-secondary { color: var(--text-secondary); }
-  .text-muted     { color: var(--text-muted); }
-  .text-faint     { color: var(--text-faint); }
+  .text-primary {
+    color: var(--text-primary);
+  }
+
+  .text-secondary {
+    color: var(--text-secondary);
+  }
+
+  .text-muted {
+    color: var(--text-muted);
+  }
+
+  .text-faint {
+    color: var(--text-faint);
+  }
 
   /* Border helpers */
-  .border-subtle  { border-color: var(--border-subtle); }
-  .border-default { border-color: var(--border-default); }
+  .border-subtle {
+    border-color: var(--border-subtle);
+  }
+
+  .border-default {
+    border-color: var(--border-default);
+  }
 
   /* Accent text colors */
-  .text-accent-lime  { color: var(--accent-lime); }
-  .text-accent-rose  { color: var(--accent-rose); }
-  .text-accent-cyan  { color: var(--accent-cyan); }
-  .text-accent-amber { color: var(--accent-amber); }
+  .text-accent-lime {
+    color: var(--accent-lime);
+  }
+
+  .text-accent-rose {
+    color: var(--accent-rose);
+  }
+
+  .text-accent-cyan {
+    color: var(--accent-cyan);
+  }
+
+  .text-accent-amber {
+    color: var(--accent-amber);
+  }
 
   /* Metric tile */
   .metric-tile {
@@ -206,31 +242,61 @@ html {
   height: 100%;
 }
 
-h1, h2, h3, .font-display {
+h1,
+h2,
+h3,
+.font-display {
   font-family: var(--font-display);
 }
 
-input, textarea {
+input,
+textarea {
   user-select: auto;
   -webkit-user-select: auto;
 }
 
 /* Hide scrollbars globally */
-::-webkit-scrollbar { display: none; }
-* { -ms-overflow-style: none; scrollbar-width: none; }
+::-webkit-scrollbar {
+  display: none;
+}
+
+* {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
 
 #app-root-container {
   background-color: transparent !important;
 }
 
 /* Light theme overrides for specific Tailwind classes used in legacy components */
-.light-theme .text-white           { color: var(--text-primary) !important; }
-.light-theme .text-zinc-100        { color: var(--text-primary) !important; }
-.light-theme .text-zinc-200        { color: var(--text-secondary) !important; }
-.light-theme .text-zinc-300        { color: var(--text-secondary) !important; }
-.light-theme .text-zinc-400        { color: var(--text-muted) !important; }
-.light-theme .text-zinc-500        { color: var(--text-faint) !important; }
-.light-theme .text-zinc-600        { color: var(--text-faint) !important; }
+.light-theme .text-white {
+  color: var(--text-primary) !important;
+}
+
+.light-theme .text-zinc-100 {
+  color: var(--text-primary) !important;
+}
+
+.light-theme .text-zinc-200 {
+  color: var(--text-secondary) !important;
+}
+
+.light-theme .text-zinc-300 {
+  color: var(--text-secondary) !important;
+}
+
+.light-theme .text-zinc-400 {
+  color: var(--text-muted) !important;
+}
+
+.light-theme .text-zinc-500 {
+  color: var(--text-faint) !important;
+}
+
+.light-theme .text-zinc-600 {
+  color: var(--text-faint) !important;
+}
 
 /* ─────────────────────────────────────────────────────────────
    LEAFLET MAP
@@ -239,15 +305,20 @@ input, textarea {
   background: var(--surface-card);
   border-radius: 12px;
 }
+
 .leaflet-tile-pane {
   filter: grayscale(0.2) brightness(0.9) contrast(1.1);
 }
+
 body.light-theme .leaflet-tile-pane {
   filter: none;
 }
+
 .leaflet-control-attribution {
-  display: none !important; /* Cleaner UI */
+  display: none !important;
+  /* Cleaner UI */
 }
+
 .leaflet-bar {
   border: none !important;
   box-shadow: none !important;
@@ -255,6 +326,7 @@ body.light-theme .leaflet-tile-pane {
   flex-direction: column !important;
   gap: 8px !important;
 }
+
 .leaflet-control-zoom-in,
 .leaflet-control-zoom-out {
   border-radius: 8px !important;
@@ -272,6 +344,7 @@ body.light-theme .leaflet-tile-pane {
   transition: all 0.2s ease !important;
   box-shadow: var(--shadow-popover) !important;
 }
+
 .leaflet-control-zoom-in:hover,
 .leaflet-control-zoom-out:hover {
   background: var(--surface-card) !important;
@@ -285,19 +358,45 @@ body.light-theme .leaflet-tile-pane {
   color: var(--text-primary);
   line-height: 1.65;
 }
-.markdown-body h1, .markdown-body h2, .markdown-body h3,
-.markdown-body h4, .markdown-body h5, .markdown-body h6 {
+
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4,
+.markdown-body h5,
+.markdown-body h6 {
   color: var(--text-primary);
   font-weight: 700;
   margin: 1em 0 0.4em;
   font-family: var(--font-display);
 }
-.markdown-body p     { margin: 0.5em 0; }
-.markdown-body ul    { list-style: disc; padding-left: 1.4em; margin: 0.5em 0; }
-.markdown-body ol    { list-style: decimal; padding-left: 1.4em; margin: 0.5em 0; }
-.markdown-body li    { margin: 0.2em 0; }
-.markdown-body strong { color: var(--text-primary); font-weight: 700; }
-.markdown-body code  {
+
+.markdown-body p {
+  margin: 0.5em 0;
+}
+
+.markdown-body ul {
+  list-style: disc;
+  padding-left: 1.4em;
+  margin: 0.5em 0;
+}
+
+.markdown-body ol {
+  list-style: decimal;
+  padding-left: 1.4em;
+  margin: 0.5em 0;
+}
+
+.markdown-body li {
+  margin: 0.2em 0;
+}
+
+.markdown-body strong {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.markdown-body code {
   background: var(--surface-inset);
   border-radius: 4px;
   padding: 0.1em 0.35em;
@@ -305,6 +404,7 @@ body.light-theme .leaflet-tile-pane {
   font-family: 'SF Mono', 'Fira Code', monospace;
   border: 1px solid var(--border-subtle);
 }
+
 .markdown-body blockquote {
   border-left: 3px solid var(--accent-lime);
   padding-left: 1em;
@@ -312,10 +412,21 @@ body.light-theme .leaflet-tile-pane {
   margin: 0.75em 0;
   font-style: italic;
 }
-.markdown-body table { width: 100%; border-collapse: collapse; font-size: 0.85em; }
-.markdown-body th, .markdown-body td {
+
+.markdown-body table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85em;
+}
+
+.markdown-body th,
+.markdown-body td {
   border: 1px solid var(--border-subtle);
   padding: 0.4em 0.75em;
   text-align: left;
 }
-.markdown-body th { background: var(--surface-inset); font-weight: 700; }
+
+.markdown-body th {
+  background: var(--surface-inset);
+  font-weight: 700;
+}
