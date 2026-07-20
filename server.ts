@@ -612,7 +612,7 @@ La struttura JSON deve essere questa:
       "type": "string, es. 'Fondo Lento', 'Fartlek', 'Riposo'",
       "targetDistanceKm": "string, es. '8-10' o null",
       "targetHrZone": "string, es. 'Z2' o null",
-      "description": "string, spiegazione tecnica del focus (molto concisa)"
+      "description": "string, struttura schematica dei blocchi. Usa il carattere '|' per separare le fasi (es. 'Riscaldamento 2km | 5x1000m @ 4:30 | Defaticamento 1km'). Sii specifico su ritmi (min/km) e range BPM."
     }
   ]
 }`;

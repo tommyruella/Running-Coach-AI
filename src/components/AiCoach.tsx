@@ -238,7 +238,14 @@ export default function AiCoach() {
                           )}
                         </div>
                         
-                        <p className="text-[11px] text-secondary leading-relaxed flex-1 mb-5">{workout.description}</p>
+                        <div className="flex-1 mb-5 flex flex-col gap-1.5">
+                          {workout.description.split('|').map((block, i) => (
+                            <div key={i} className="flex items-start gap-2">
+                              <span className="text-accent-cyan opacity-70 text-[10px] mt-0.5">•</span>
+                              <span className="text-[11px] text-secondary leading-relaxed">{block.trim()}</span>
+                            </div>
+                          ))}
+                        </div>
                         
                         {!isCompleted && !workout.targetDistanceKm && (
                           <button 
