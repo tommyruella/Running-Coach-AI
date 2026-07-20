@@ -25,7 +25,7 @@ export default function AiCoach() {
       const a = await actRes.json();
       setPlan(p);
       setSettings(s);
-      setActivities(a);
+      setActivities(a.activities || []);
     } catch (e) {
       console.error(e);
     } finally {
