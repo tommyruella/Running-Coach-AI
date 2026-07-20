@@ -59,7 +59,6 @@ export default function AiCoach() {
         body: JSON.stringify({ availableDays: days })
       });
       setSettings({ availableDays: days });
-      setShowSettings(false);
     } catch (e) {
       console.error(e);
     }

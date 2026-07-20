@@ -581,7 +581,7 @@ app.post('/api/coach/generate-plan', async (req, res) => {
     }
 
     const dayNames = ['Domenica', 'Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato'];
-    const availableDaysNames = settings.availableDays.map(d => dayNames[d]).join(', ');
+    const availableDaysInfo = settings.availableDays.map(d => `${dayNames[d]} (dayOfWeek: ${d})`).join(', ');
 
     const prompt = `
 Sei un allenatore professionista di corsa. Devi generare il piano di allenamento per la prossima settimana.
@@ -592,7 +592,8 @@ STATO ATTUALE DELL'ATLETA:
 Negli ultimi 30 giorni ha corso in media ${weeklyAvgKm} km a settimana, con un passo medio di ${avgPaceStr} min/km.
 
 GIORNI DISPONIBILI PER ALLENARSI QUESTA SETTIMANA:
-L'utente può correre SOLO nei seguenti giorni: ${availableDaysNames}. Negli altri giorni assegna rigorosamente "Riposo" o "Core Stability".
+L'utente può correre SOLO nei seguenti giorni: ${availableDaysInfo}.
+IMPORTANTE: Per tutti gli altri giorni (i cui numeri dayOfWeek non sono in questo elenco), il "type" DEVE ESSERE RIGOROSAMENTE "Riposo" e "targetDistanceKm" deve essere null. Non proporre mai corsa in un giorno di Riposo.
 
 CONTESTO SETTIMANA PRECEDENTE:
 ${lastWeekContext}
