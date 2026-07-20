@@ -3,15 +3,19 @@ import { createPortal } from 'react-dom';
 import { Bot, Calendar, CheckCircle2, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Play, Settings, Loader2, Lightbulb, AlertTriangle, X } from 'lucide-react';
 import { WeeklyPlan, PlannedWorkout, CoachSettings, Activity } from '../types.js';
 
+let cachedPlan: WeeklyPlan | null = null;
+let cachedSettings: CoachSettings | null = null;
+let cachedActivities: Activity[] | null = null;
+
 export default function AiCoach() {
-  const [plan, setPlan] = useState<WeeklyPlan | null>(null);
-  const [settings, setSettings] = useState<CoachSettings>({ availableDays: [0, 2, 4, 6] });
-  const [loading, setLoading] = useState(true);
+  const [plan, setPlan] = useState<WeeklyPlan | null>(cachedPlan);
+  const [settings, setSettings] = useState<CoachSettings>(cachedSettings || { availableDays: [0, 2, 4, 6] });
+  const [loading, setLoading] = useState(!cachedPlan);
   const [generating, setGenerating] = useState(false);
   const [notes, setNotes] = useState('');
   const [showSettings, setShowSettings] = useState(false);
   const [expandedFeedback, setExpandedFeedback] = useState(false);
-  const [activities, setActivities] = useState<Activity[]>([]);
+  const [activities, setActivities] = useState<Activity[]>(cachedActivities || []);
   const [linkModalWorkout, setLinkModalWorkout] = useState<PlannedWorkout | null>(null);
   const [errorModal, setErrorModal] = useState<string | null>(null);
   
@@ -39,9 +43,14 @@ export default function AiCoach() {
       const p = await planRes.json();
       const s = await setRes.json();
       const a = await actRes.json();
-      setPlan(p);
-      setSettings(s);
-      setActivities(a.activities || []);
+      
+      cachedPlan = p;
+      cachedSettings = s;
+      cachedActivities = a.activities || [];
+      
+      setPlan(cachedPlan);
+      setSettings(cachedSettings);
+      setActivities(cachedActivities);
     } catch (e) {
       console.error(e);
     } finally {
@@ -65,7 +74,9 @@ export default function AiCoach() {
       if (!res.ok) {
         throw new Error(data.error || 'Errore nella generazione del piano');
       }
-      setPlan(data);
+      
+      cachedPlan = data;
+      setPlan(cachedPlan);
       setNotes('');
     } catch (e: any) {
       console.error(e);
@@ -82,7 +93,8 @@ export default function AiCoach() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ availableDays: days })
       });
-      setSettings({ availableDays: days });
+      cachedSettings = { availableDays: days };
+      setSettings(cachedSettings);
     } catch (e) {
       console.error(e);
     }
@@ -97,12 +109,14 @@ export default function AiCoach() {
       });
       // Aggiorna UI localmente
       if (plan) {
-        setPlan({
+        const updatedPlan = {
           ...plan,
           workouts: plan.workouts.map(w => 
             w.id === workoutId ? { ...w, completedManually: true } : w
           )
-        });
+        };
+        cachedPlan = updatedPlan;
+        setPlan(updatedPlan);
       }
     } catch (e) {
       console.error(e);
@@ -117,14 +131,21 @@ export default function AiCoach() {
         body: JSON.stringify({ plannedWorkoutId: workoutId, activityId })
       });
       if (plan) {
-        setPlan({
+        const updatedPlan = {
           ...plan,
           workouts: plan.workouts.map(w => 
             w.id === workoutId ? { ...w, linkedActivityId: activityId } : w
           )
-        });
+        };
+        cachedPlan = updatedPlan;
+        setPlan(updatedPlan);
       }
-      setActivities(prev => prev.map(a => a.id === activityId ? { ...a, plannedWorkoutId: workoutId } : a));
+      
+      setActivities(prev => {
+        const updatedActivities = prev.map(a => a.id === activityId ? { ...a, plannedWorkoutId: workoutId } : a);
+        cachedActivities = updatedActivities;
+        return updatedActivities;
+      });
       setLinkModalWorkout(null);
     } catch (e) {
       console.error(e);
