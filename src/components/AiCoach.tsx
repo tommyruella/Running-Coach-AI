@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Bot, Calendar, CheckCircle2, ChevronDown, ChevronUp, Play, Settings, Loader2 } from 'lucide-react';
-import { WeeklyPlan, PlannedWorkout, CoachSettings } from '../types.js';
+import { WeeklyPlan, PlannedWorkout, CoachSettings, Activity } from '../types.js';
 
 export default function AiCoach() {
   const [plan, setPlan] = useState<WeeklyPlan | null>(null);
@@ -10,17 +10,22 @@ export default function AiCoach() {
   const [notes, setNotes] = useState('');
   const [showSettings, setShowSettings] = useState(false);
   const [expandedFeedback, setExpandedFeedback] = useState(false);
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [linkModalWorkout, setLinkModalWorkout] = useState<PlannedWorkout | null>(null);
 
   const fetchPlanAndSettings = async () => {
     try {
-      const [planRes, setRes] = await Promise.all([
+      const [planRes, setRes, actRes] = await Promise.all([
         fetch('/api/coach/plan'),
-        fetch('/api/coach/settings')
+        fetch('/api/coach/settings'),
+        fetch('/api/activities')
       ]);
       const p = await planRes.json();
       const s = await setRes.json();
+      const a = await actRes.json();
       setPlan(p);
       setSettings(s);
+      setActivities(a);
     } catch (e) {
       console.error(e);
     } finally {
@@ -80,6 +85,28 @@ export default function AiCoach() {
           )
         });
       }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleLinkTcx = async (workoutId: string, activityId: string) => {
+    try {
+      await fetch('/api/coach/link-activity', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plannedWorkoutId: workoutId, activityId })
+      });
+      if (plan) {
+        setPlan({
+          ...plan,
+          workouts: plan.workouts.map(w => 
+            w.id === workoutId ? { ...w, linkedActivityId: activityId } : w
+          )
+        });
+      }
+      setActivities(prev => prev.map(a => a.id === activityId ? { ...a, plannedWorkoutId: workoutId } : a));
+      setLinkModalWorkout(null);
     } catch (e) {
       console.error(e);
     }
@@ -276,9 +303,12 @@ export default function AiCoach() {
                           </button>
                         )}
                         {!isCompleted && workout.targetDistanceKm && (
-                          <div className="w-full py-2.5 bg-transparent text-center text-[9px] font-bold text-muted rounded-lg border border-dashed border-subtle uppercase tracking-widest mt-auto">
-                            TCX per completare
-                          </div>
+                          <button 
+                            onClick={() => setLinkModalWorkout(workout)}
+                            className="w-full py-2.5 bg-transparent hover:bg-[var(--surface-hover)] text-[10px] font-bold text-muted hover:text-primary rounded-lg border border-dashed border-subtle transition-colors uppercase tracking-widest mt-auto"
+                          >
+                            Seleziona TCX
+                          </button>
                         )}
                       </div>
                     )}
@@ -289,6 +319,49 @@ export default function AiCoach() {
           </div>
         </div>
       ) : null}
+      {/* Modal Associazione TCX */}
+      {linkModalWorkout && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[var(--window-bg)] rounded-[2rem] p-6 max-w-md w-full shadow-2xl border border-[var(--border-subtle)] relative">
+            <button 
+              onClick={() => setLinkModalWorkout(null)}
+              className="absolute top-4 right-4 p-2 text-muted hover:text-primary transition-colors bg-[var(--surface-inset)] rounded-full"
+            >
+              <CheckCircle2 className="h-5 w-5 opacity-0" /> {/* Per occupare spazio */}
+              <span className="absolute inset-0 flex items-center justify-center text-xl leading-none">&times;</span>
+            </button>
+            
+            <h3 className="text-xl font-black text-primary mb-2">Associa Allenamento</h3>
+            <p className="text-sm text-secondary mb-6">
+              Seleziona un'attività TCX caricata da associare a: <strong>{linkModalWorkout.type}</strong>
+            </p>
+            
+            <div className="flex flex-col gap-3 max-h-[60vh] overflow-y-auto pr-2">
+              {activities.filter(a => !a.plannedWorkoutId).length === 0 ? (
+                <div className="text-center p-6 bg-[var(--surface-inset)] rounded-xl border border-dashed border-subtle">
+                  <p className="text-sm text-secondary">Nessuna attività TCX disponibile.</p>
+                  <p className="text-xs text-muted mt-2">Carica prima un file dal pannello Admin.</p>
+                </div>
+              ) : (
+                activities.filter(a => !a.plannedWorkoutId).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(act => (
+                  <button
+                    key={act.id}
+                    onClick={() => handleLinkTcx(linkModalWorkout.id, act.id)}
+                    className="flex flex-col text-left p-4 rounded-xl bg-[var(--surface-inset)] border border-subtle hover:border-accent-cyan/50 hover:shadow-md transition-all group"
+                  >
+                    <span className="text-sm font-bold text-primary group-hover:text-accent-cyan transition-colors">{act.name}</span>
+                    <div className="flex gap-4 mt-2 text-xs font-mono text-secondary">
+                      <span>{act.distanceKm} km</span>
+                      <span>{act.durationMin} min</span>
+                      <span>{new Date(act.date).toLocaleDateString()}</span>
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
