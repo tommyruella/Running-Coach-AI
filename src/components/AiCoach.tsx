@@ -257,24 +257,12 @@ export default function AiCoach() {
 
           {/* Horizontal Cards Layout */}
           <div className="pt-4 pb-2 bg-[var(--window-bg)] relative group">
-            {/* Mobile Carousel Controls */}
-            <button 
-              onClick={scrollLeft}
-              className="absolute left-2 top-1/2 -translate-y-1/2 z-10 p-2 bg-[var(--surface-popover)] border border-subtle shadow-md rounded-full text-secondary hover:text-primary sm:hidden"
-            >
-              <ChevronLeft className="h-5 w-5" />
-            </button>
-            <button 
-              onClick={scrollRight}
-              className="absolute right-2 top-1/2 -translate-y-1/2 z-10 p-2 bg-[var(--surface-popover)] border border-subtle shadow-md rounded-full text-secondary hover:text-primary sm:hidden"
-            >
-              <ChevronRight className="h-5 w-5" />
-            </button>
-
             <div 
               ref={scrollContainerRef}
               className="flex gap-4 overflow-x-auto pb-6 snap-x snap-mandatory hide-scrollbar px-5 sm:px-6"
             >
+              {/* Left spacer to align first card with content padding */}
+              <div className="w-1 sm:w-2 shrink-0" />
               {[1, 2, 3, 4, 5, 6, 0].map((d) => {
                 const workout = plan.workouts.find(w => w.dayOfWeek === d);
                 const isToday = new Date().getDay() === d;
