@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Bot, Calendar, CheckCircle2, ChevronDown, ChevronUp, Play, Settings, Loader2 } from 'lucide-react';
 import { WeeklyPlan, PlannedWorkout, CoachSettings, Activity } from '../types.js';
 
@@ -319,9 +320,9 @@ export default function AiCoach() {
           </div>
         </div>
       ) : null}
-      {/* Modal Associazione TCX */}
-      {linkModalWorkout && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      {/* Modal Associazione TCX tramite Portal per bypassare i stacking context di Framer Motion */}
+      {linkModalWorkout && createPortal(
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[2000] flex items-center justify-center p-4">
           <div className="bg-[var(--window-bg)] rounded-[2rem] p-6 max-w-md w-full shadow-2xl border border-[var(--border-subtle)] relative">
             <button 
               onClick={() => setLinkModalWorkout(null)}
@@ -360,7 +361,8 @@ export default function AiCoach() {
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
