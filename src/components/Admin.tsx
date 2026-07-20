@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Trash2, Edit2, Check, X, ShieldAlert } from 'lucide-react';
+import { Trash2, Edit2, Check, X, ShieldAlert, Unlink } from 'lucide-react';
 import { Activity, WeeklyPlan } from '../types.js';
 
 interface AdminProps {
@@ -91,6 +91,25 @@ export default function Admin({ onClose }: AdminProps) {
     } catch (err) {
       console.error(err);
       alert('Errore durante la rinominazione.');
+    }
+  };
+
+  const handleUnlink = async (activityId: string, plannedWorkoutId: string) => {
+    try {
+      const res = await fetch('/api/coach/unlink-activity', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ activityId, plannedWorkoutId })
+      });
+      if (res.ok) {
+        setActivities(prev => prev.map(a => a.id === activityId ? { ...a, plannedWorkoutId: undefined } : a));
+        fetchPlan(); // Aggiorna il piano per rimuovere il completamento
+      } else {
+        throw new Error('Unlink failed');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Errore durante lo scollegamento.');
     }
   };
 
@@ -190,6 +209,15 @@ export default function Admin({ onClose }: AdminProps) {
                       >
                         <Edit2 className="w-4 h-4" />
                       </button>
+                      {activity.plannedWorkoutId && (
+                        <button 
+                          onClick={() => handleUnlink(activity.id, activity.plannedWorkoutId!)}
+                          className="p-2 surface-inset border border-subtle rounded-lg text-secondary hover:text-accent-cyan hover:border-accent-cyan/30 transition-colors shadow-sm"
+                          title="Scollega dal piano"
+                        >
+                          <Unlink className="w-4 h-4" />
+                        </button>
+                      )}
                       <button 
                         onClick={() => handleDelete(activity.id)}
                         className="p-2 surface-inset border border-subtle rounded-lg text-secondary hover:text-accent-rose hover:border-accent-rose/30 transition-colors shadow-sm"

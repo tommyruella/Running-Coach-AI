@@ -530,6 +530,44 @@ app.post('/api/coach/link-activity', async (req, res) => {
   }
 });
 
+app.post('/api/coach/unlink-activity', async (req, res) => {
+  try {
+    const { activityId, plannedWorkoutId } = req.body;
+    
+    // 1. Remove the link from the workout
+    const plans = await getWeeklyPlans();
+    let updated = false;
+    for (const plan of plans) {
+      const workout = plan.workouts.find(w => w.id === plannedWorkoutId);
+      if (workout) {
+        workout.linkedActivityId = undefined;
+        workout.completedManually = false;
+        updated = true;
+        break;
+      }
+    }
+    
+    if (updated) {
+      await saveWeeklyPlans(plans);
+    }
+    
+    // 2. Remove the link from the activity
+    if (activityId) {
+      const activities = await getActivities();
+      const activity = activities.find(a => a.id === activityId);
+      if (activity) {
+        activity.plannedWorkoutId = null as any; // Set to null/undefined
+        const { saveActivities } = await import('./server/db.js');
+        await saveActivities([activity]); 
+      }
+    }
+    
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.post('/api/coach/generate-plan', async (req, res) => {
   try {
     const { notes } = req.body;
