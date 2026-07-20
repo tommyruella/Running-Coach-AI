@@ -213,8 +213,8 @@ export default function ActivityCharts({ trackpoints, distanceKm, mapHeight = 38
                 <ComposedChart data={chartData} margin={{ top: 4, right: 0, left: -24, bottom: 0 }}>
                   <defs>
                     <linearGradient id="altGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#ffffff" stopOpacity={0.08} />
-                      <stop offset="95%" stopColor="#ffffff" stopOpacity={0.0} />
+                      <stop offset="5%" stopColor="var(--chart-alt-fill)" />
+                      <stop offset="95%" stopColor="var(--chart-alt-fill)" stopOpacity={0.0} />
                     </linearGradient>
                   </defs>
                   <XAxis dataKey="dist" tickFormatter={distFormatter} tick={{ fontSize: 9, fill: '#3f3f46' }} stroke="none" tickLine={false} axisLine={false} interval={Math.max(1, Math.floor(chartData.length / 5))} />
@@ -225,7 +225,7 @@ export default function ActivityCharts({ trackpoints, distanceKm, mapHeight = 38
                     if (name === 'Passo') return [paceFormatter(val) + ' /km', name];
                     return [val, name];
                   }} labelFormatter={distFormatter} />
-                  <Area yAxisId="alt" type="monotone" dataKey="altitude" name="Altitudine" stroke="rgba(255,255,255,0.3)" strokeWidth={1.5} fill="url(#altGrad)" dot={false} connectNulls opacity={0.8} />
+                  <Area yAxisId="alt" type="monotone" dataKey="altitude" name="Altitudine" stroke="var(--chart-alt-color)" strokeWidth={1.5} fill="url(#altGrad)" dot={false} connectNulls />
                   {hasPace && <Line yAxisId="pace" type="monotone" dataKey="pace" name="Passo" stroke="#22d3ee" strokeWidth={1.5} dot={false} connectNulls />}
                 </ComposedChart>
               </ResponsiveContainer>
