@@ -26,7 +26,7 @@ interface ActivityChartsProps {
 }
 
 // --- Leaflet Map Component ---
-const LeafletMap: React.FC<{ trackpoints: Trackpoint[] }> = ({ trackpoints }) => {
+const LeafletMap: React.FC<{ trackpoints: Trackpoint[]; compact?: boolean }> = ({ trackpoints, compact = false }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
 
@@ -196,7 +196,7 @@ export default function ActivityCharts({ trackpoints, distanceKm, mapHeight = 38
       {/* GPS Map — bare, no wrapper card */}
       {hasGps && (
         <div style={{ height: mapHeight }} className="w-full overflow-hidden">
-          <LeafletMap trackpoints={trackpoints} />
+          <LeafletMap trackpoints={trackpoints} compact={compact} />
         </div>
       )}
 
