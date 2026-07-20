@@ -83,6 +83,7 @@ export interface WeeklyPlan {
   weekStartDate: string; // "YYYY-MM-DD" del lunedì
   theme: string;
   analysisFeedback: string;
+  tips?: string[];
   workouts: PlannedWorkout[];
 }
 

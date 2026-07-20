@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Bot, Calendar, CheckCircle2, ChevronDown, ChevronUp, Play, Settings, Loader2 } from 'lucide-react';
+import { Bot, Calendar, CheckCircle2, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Play, Settings, Loader2, Lightbulb } from 'lucide-react';
 import { WeeklyPlan, PlannedWorkout, CoachSettings, Activity } from '../types.js';
 
 export default function AiCoach() {
@@ -13,6 +13,20 @@ export default function AiCoach() {
   const [expandedFeedback, setExpandedFeedback] = useState(false);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [linkModalWorkout, setLinkModalWorkout] = useState<PlannedWorkout | null>(null);
+  
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  const scrollLeft = () => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollBy({ left: -260, behavior: 'smooth' });
+    }
+  };
+
+  const scrollRight = () => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollBy({ left: 260, behavior: 'smooth' });
+    }
+  };
 
   const fetchPlanAndSettings = async () => {
     try {
@@ -217,8 +231,25 @@ export default function AiCoach() {
           </div>
 
           {/* Horizontal Cards Layout */}
-          <div className="pt-4 pb-2 bg-[var(--window-bg)]">
-            <div className="flex gap-4 overflow-x-auto pb-6 snap-x hide-scrollbar px-5 sm:px-6">
+          <div className="pt-4 pb-2 bg-[var(--window-bg)] relative group">
+            {/* Mobile Carousel Controls */}
+            <button 
+              onClick={scrollLeft}
+              className="absolute left-2 top-1/2 -translate-y-1/2 z-10 p-2 bg-[var(--surface-popover)] border border-subtle shadow-md rounded-full text-secondary hover:text-primary sm:hidden"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+            <button 
+              onClick={scrollRight}
+              className="absolute right-2 top-1/2 -translate-y-1/2 z-10 p-2 bg-[var(--surface-popover)] border border-subtle shadow-md rounded-full text-secondary hover:text-primary sm:hidden"
+            >
+              <ChevronRight className="h-5 w-5" />
+            </button>
+
+            <div 
+              ref={scrollContainerRef}
+              className="flex gap-4 overflow-x-auto pb-6 snap-x snap-mandatory hide-scrollbar px-5 sm:px-6"
+            >
               {[1, 2, 3, 4, 5, 6, 0].map((d) => {
                 const workout = plan.workouts.find(w => w.dayOfWeek === d);
                 const isToday = new Date().getDay() === d;
@@ -318,6 +349,24 @@ export default function AiCoach() {
               })}
             </div>
           </div>
+          
+          {/* AI Tips Section */}
+          {plan.tips && plan.tips.length > 0 && (
+            <div className="p-5 sm:p-6 bg-[var(--surface-inset)] border-t border-subtle">
+              <div className="flex items-center gap-2 mb-4">
+                <Lightbulb className="h-5 w-5 text-accent-cyan" />
+                <h3 className="text-sm font-black text-primary tracking-wide uppercase">Consigli del Coach</h3>
+              </div>
+              <ul className="space-y-3">
+                {plan.tips.map((tip, idx) => (
+                  <li key={idx} className="flex gap-3 text-sm text-secondary">
+                    <span className="text-accent-cyan opacity-50 font-black flex-shrink-0">•</span>
+                    <span>{tip}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       ) : null}
       {/* Modal Associazione TCX tramite Portal per bypassare i stacking context di Framer Motion */}

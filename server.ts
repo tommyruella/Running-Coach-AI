@@ -582,6 +582,10 @@ app.post('/api/coach/generate-plan', async (req, res) => {
     let totalKm = 0;
     let paceSecondsSum = 0;
     let paceCount = 0;
+    let hrSum = 0;
+    let hrCount = 0;
+    let cadenceSum = 0;
+    let cadenceCount = 0;
     
     recentActivities.forEach(act => {
       totalKm += act.distanceKm;
@@ -591,6 +595,14 @@ app.post('/api/coach/generate-plan', async (req, res) => {
           paceSecondsSum += (min * 60 + sec) * act.distanceKm;
           paceCount += act.distanceKm;
         }
+      }
+      if (act.avgHeartRate) {
+        hrSum += act.avgHeartRate;
+        hrCount++;
+      }
+      if (act.avgCadence) {
+        cadenceSum += act.avgCadence;
+        cadenceCount++;
       }
     });
     
@@ -603,6 +615,8 @@ app.post('/api/coach/generate-plan', async (req, res) => {
     }
     
     const weeklyAvgKm = (totalKm / 4).toFixed(1);
+    const avgHrStr = hrCount > 0 ? Math.round(hrSum / hrCount).toString() : 'N/A';
+    const avgCadenceStr = cadenceCount > 0 ? Math.round(cadenceSum / cadenceCount).toString() : 'N/A';
     
     const plans = await getWeeklyPlans();
     const sortedPlans = [...plans].sort((a, b) => new Date(b.weekStartDate).getTime() - new Date(a.weekStartDate).getTime());
@@ -628,6 +642,8 @@ Passo gara target: 4:50 - 5:10 min/km (4 alto, 5 basso).
 
 STATO ATTUALE DELL'ATLETA:
 Negli ultimi 30 giorni ha corso in media ${weeklyAvgKm} km a settimana, con un passo medio di ${avgPaceStr} min/km.
+Frequenza Cardiaca Media: ${avgHrStr} bpm.
+Cadenza Media: ${avgCadenceStr} spm.
 
 GIORNI DISPONIBILI PER ALLENARSI QUESTA SETTIMANA:
 L'utente può correre SOLO nei seguenti giorni: ${availableDaysInfo}.
@@ -644,6 +660,9 @@ La struttura JSON deve essere questa:
 {
   "theme": "string, es. 'Costruzione Aerobica' o 'Settimana di Scarico'",
   "analysisFeedback": "string, massimo 3 frasi di feedback/analisi motivazionale",
+  "tips": [
+    "string, 2 o 3 consigli molto brevi e puntuali basati sui trend analizzati (es. cadenza bassa, passo, bpm). Es: 'Cadenza a 155 spm: cerca passi più corti', 'Frequenza alta: cura la respirazione'."
+  ],
   "workouts": [
     {
       "dayOfWeek": number, /* 0 per Dom, 1 per Lun... da 0 a 6 per tutti e 7 i giorni */
