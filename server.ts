@@ -691,9 +691,9 @@ La struttura JSON deve essere questa:
         }
       });
     } catch (apiError: any) {
-      console.warn('gemini-3.5-flash failed, falling back to gemini-2.5-flash. Error:', apiError.message);
+      console.warn('gemini-3.5-flash failed, falling back to gemini-2.0-flash. Error:', apiError.message);
       result = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-2.0-flash',
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         config: {
           responseMimeType: 'application/json',
