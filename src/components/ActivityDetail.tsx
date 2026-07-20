@@ -142,14 +142,12 @@ export default function ActivityDetail({ activity, onBack }: ActivityDetailProps
 
       {/* Charts Panel */}
       {activity.trackpoints && activity.trackpoints.length > 0 && (
-        <div className="clean-panel px-2 pt-2 pb-6 mb-6 overflow-hidden">
-          <ActivityCharts
-            trackpoints={activity.trackpoints}
-            distanceKm={activity.distanceKm}
-            mapHeight={0}
-            compact={false}
-          />
-        </div>
+        <ActivityCharts
+          trackpoints={activity.trackpoints}
+          distanceKm={activity.distanceKm}
+          mapHeight={0}
+          compact={false}
+        />
       )}
 
       {/* Secondary Metrics */}

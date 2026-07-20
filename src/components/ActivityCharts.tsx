@@ -198,14 +198,14 @@ export default function ActivityCharts({ trackpoints, distanceKm, mapHeight = 38
       )}
 
       {!compact && (
-        <>
-          {/* Altitude + Pace chart — no wrapper card */}
+        <div className="space-y-6">
+          {/* Altitude + Pace chart */}
           {hasAlt && (
-            <div className="pt-6 px-2 space-y-2">
-              <div className="flex items-center justify-between px-1">
-                <span className="text-[9px] text-zinc-500 uppercase font-mono tracking-widest">Altitudine & Passo</span>
-                <div className="flex items-center gap-4 text-[9px] font-mono">
-                  <span className="flex items-center gap-1.5 text-zinc-400"><span className="w-2 h-0.5 bg-white/30 inline-block" /> Alt</span>
+            <div className="clean-panel p-4 sm:p-6 overflow-hidden">
+              <div className="flex items-center justify-between px-1 mb-4">
+                <span className="text-[10px] text-zinc-500 uppercase font-mono tracking-widest font-bold">Altitudine & Passo</span>
+                <div className="flex items-center gap-4 text-[9px] font-mono font-semibold">
+                  <span className="flex items-center gap-1.5 text-zinc-400"><span className="w-2 h-0.5 bg-white/35 dark:bg-white/30 inline-block" /> Alt</span>
                   {hasPace && <span className="flex items-center gap-1.5 text-cyan-400"><span className="w-2 h-0.5 bg-cyan-400 inline-block" /> Passo</span>}
                 </div>
               </div>
@@ -234,10 +234,10 @@ export default function ActivityCharts({ trackpoints, distanceKm, mapHeight = 38
 
           {/* Pace + HR chart */}
           {(hasPace || hasHr) && (
-            <div className="pt-4 px-2 space-y-2">
-              <div className="flex items-center justify-between px-1">
-                <span className="text-[9px] text-zinc-500 uppercase font-mono tracking-widest">Passo & FC</span>
-                <div className="flex items-center gap-4 text-[9px] font-mono">
+            <div className="clean-panel p-4 sm:p-6 overflow-hidden">
+              <div className="flex items-center justify-between px-1 mb-4">
+                <span className="text-[10px] text-zinc-500 uppercase font-mono tracking-widest font-bold">Passo & Frequenza Cardiaca</span>
+                <div className="flex items-center gap-4 text-[9px] font-mono font-semibold">
                   {hasPace && <span className="flex items-center gap-1.5 text-cyan-400"><span className="w-2 h-0.5 bg-cyan-400 inline-block" /> Passo</span>}
                   {hasHr && <span className="flex items-center gap-1.5 text-rose-400"><span className="w-2 h-0.5 bg-rose-400 inline-block" /> BPM</span>}
                 </div>
@@ -261,10 +261,10 @@ export default function ActivityCharts({ trackpoints, distanceKm, mapHeight = 38
 
           {/* Cadence chart */}
           {hasCadence && (
-            <div className="pt-4 px-2 space-y-2">
-              <div className="flex items-center justify-between px-1">
-                <span className="text-[9px] text-zinc-500 uppercase font-mono tracking-widest">Cadenza (ppm)</span>
-                <div className="flex flex-wrap items-center gap-3 text-[8px] font-mono">
+            <div className="clean-panel p-4 sm:p-6 overflow-hidden">
+              <div className="flex items-center justify-between px-1 mb-4">
+                <span className="text-[10px] text-zinc-500 uppercase font-mono tracking-widest font-bold">Cadenza</span>
+                <div className="flex flex-wrap items-center gap-3 text-[8px] font-mono font-semibold">
                   <span className="flex items-center gap-1 text-rose-500"><span className="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block" /> &lt;155</span>
                   <span className="flex items-center gap-1 text-orange-400"><span className="w-1.5 h-1.5 rounded-full bg-orange-400 inline-block" /> &lt;170</span>
                   <span className="flex items-center gap-1 text-lime-400"><span className="w-1.5 h-1.5 rounded-full bg-lime-400 inline-block" /> &lt;185</span>
@@ -281,7 +281,7 @@ export default function ActivityCharts({ trackpoints, distanceKm, mapHeight = 38
               </ResponsiveContainer>
             </div>
           )}
-        </>
+        </div>
       )}
     </div>
   );
