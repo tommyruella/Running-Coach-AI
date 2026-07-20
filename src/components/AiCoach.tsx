@@ -238,13 +238,33 @@ export default function AiCoach() {
                           )}
                         </div>
                         
-                        <div className="flex-1 mb-5 flex flex-col gap-1.5">
-                          {workout.description.split('|').map((block, i) => (
-                            <div key={i} className="flex items-start gap-2">
-                              <span className="text-accent-cyan opacity-70 text-[10px] mt-0.5">•</span>
-                              <span className="text-[11px] text-secondary leading-relaxed">{block.trim()}</span>
-                            </div>
-                          ))}
+                        <div className="flex-1 mb-6 flex flex-col mt-2">
+                          {workout.description.split('|').map((block, i, arr) => {
+                            const isLast = i === arr.length - 1;
+                            const text = block.trim();
+                            if (!text) return null;
+                            
+                            return (
+                              <div key={i} className="relative flex items-stretch gap-3 group">
+                                {/* Linea verticale di connessione (se non è l'ultimo elemento) */}
+                                {!isLast && <div className="absolute left-[7px] top-4 bottom-[-4px] w-[2px] bg-[var(--border-subtle)] group-hover:bg-accent-cyan/30 transition-colors" />}
+                                
+                                {/* Nodo circolare */}
+                                <div className="flex-none mt-1.5 z-10">
+                                  <div className="w-4 h-4 rounded-full border-2 border-[var(--border-subtle)] bg-[var(--surface-popover)] group-hover:border-accent-cyan flex items-center justify-center transition-colors">
+                                    <div className="w-1.5 h-1.5 bg-[var(--border-subtle)] group-hover:bg-accent-cyan rounded-full transition-colors" />
+                                  </div>
+                                </div>
+                                
+                                {/* Testo del blocco */}
+                                <div className="flex-1 pb-3">
+                                  <div className="bg-[var(--surface-inset)] px-3 py-2.5 rounded-xl border border-subtle group-hover:border-accent-cyan/40 shadow-sm transition-all">
+                                    <span className="text-[11px] font-medium text-primary leading-relaxed block">{text}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                         
                         {!isCompleted && !workout.targetDistanceKm && (
