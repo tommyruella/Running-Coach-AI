@@ -194,7 +194,8 @@ export default function AiCoach() {
               <div className="flex gap-3 sm:gap-5 relative w-max px-5 sm:px-6">
                 
                 {/* Continuous Timeline Line */}
-                <div className="absolute top-[32px] left-10 right-10 h-0.5 bg-[var(--border-subtle)] z-0 rounded-full" />
+                {/* Il centro del nodo si trova esattamente a 42px dall'inizio del container: mt-2 (8) + line-height (14) + mb-3 (12) + raggio_nodo (8) = 42 */}
+                <div className="absolute top-[42px] left-10 right-10 h-1 bg-[var(--border-subtle)] z-0 rounded-full" />
                 
                 {[1, 2, 3, 4, 5, 6, 0].map((d) => {
                   const workout = plan.workouts.find(w => w.dayOfWeek === d);
@@ -203,53 +204,59 @@ export default function AiCoach() {
                   const isRest = !workout || workout.type === 'Riposo';
 
                   // I giorni di riposo occupano meno spazio
-                  const cardWidth = isRest ? 'w-[120px]' : 'w-[280px] sm:w-[320px]';
+                  const cardWidth = isRest ? 'w-[100px]' : 'w-[280px] sm:w-[320px]';
 
                   return (
                     <div key={d} className={`snap-start shrink-0 flex flex-col relative z-10 ${cardWidth} transition-all`}>
                       
                       {/* Node (Day indicator) */}
-                      <div className="h-16 flex flex-col items-center justify-center relative mb-2">
-                        <span className="text-[10px] uppercase font-bold tracking-widest text-muted mb-1">{fullDayNames[d].substring(0, 3)}</span>
-                        <div className={`w-3.5 h-3.5 rounded-full ring-4 ring-[var(--window-bg)] z-10 transition-colors ${
+                      <div className="h-20 flex flex-col items-center justify-start relative">
+                        <span className="text-[10px] uppercase font-bold tracking-widest text-muted mt-2 mb-3">{fullDayNames[d].substring(0, 3)}</span>
+                        
+                        <div className={`w-4 h-4 rounded-full ring-4 ring-[var(--window-bg)] z-10 transition-colors relative flex items-center justify-center ${
                           isCompleted ? 'bg-accent-lime' : 
                           isToday ? 'bg-accent-cyan shadow-[0_0_12px_rgba(34,211,238,0.8)]' : 
-                          isRest ? 'bg-[var(--border-subtle)]' : 'bg-primary'
-                        }`} />
-                        {isToday && <span className="absolute -bottom-2 text-[9px] font-black uppercase text-accent-cyan tracking-widest">Oggi</span>}
+                          isRest ? 'bg-[var(--surface-hover)]' : 'bg-primary'
+                        }`}>
+                          {isToday && <div className="absolute w-8 h-8 rounded-full border border-accent-cyan animate-ping opacity-60" />}
+                        </div>
+                        
+                        {isToday && <span className="absolute top-[52px] text-[9px] font-black uppercase text-accent-cyan tracking-widest">Oggi</span>}
                       </div>
 
                       {/* Card (Glassmorphism & Neon) */}
-                      <div className={`p-5 sm:p-6 rounded-[2rem] border flex flex-col flex-1 transition-all ${
-                        isToday ? 'border-accent-cyan bg-[var(--surface-popover)]/90 backdrop-blur-xl shadow-lg' : 
-                        isRest ? 'border-transparent bg-transparent opacity-50 justify-center items-center' : 
-                        'border-subtle bg-[var(--surface-popover)]/70 backdrop-blur-md shadow-sm'
-                      }`}>
-                         
-                         {isRest ? (
-                           <span className="text-sm font-bold text-secondary uppercase tracking-widest">Riposo</span>
-                         ) : (
+                      {isRest ? (
+                        <div className="flex flex-col items-center mt-4">
+                          <div className="bg-[var(--surface-inset)] px-3 py-1.5 rounded-full border border-subtle">
+                             <span className="text-[9px] font-bold text-muted uppercase tracking-widest">Riposo</span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className={`mt-2 p-5 sm:p-6 rounded-[2rem] border flex flex-col flex-1 transition-all ${
+                          isToday ? 'border-accent-cyan bg-[var(--surface-popover)]/95 backdrop-blur-xl shadow-lg' : 
+                          'border-subtle bg-[var(--surface-popover)]/70 backdrop-blur-md shadow-sm'
+                        }`}>
                            <div className="flex flex-col h-full">
                              <div className="flex justify-between items-start mb-4">
                                <h2 className="text-2xl font-black text-primary leading-tight tracking-tight">{workout.type}</h2>
-                               {isCompleted && <CheckCircle2 className="h-5 w-5 text-accent-lime shrink-0" />}
+                               {isCompleted && <div className="bg-accent-lime/10 text-accent-lime p-1.5 rounded-full"><CheckCircle2 className="h-5 w-5 shrink-0" /></div>}
                              </div>
                              
                              <div className="flex flex-wrap gap-2 mb-5">
                                {workout.targetDistanceKm && (
-                                 <div className="bg-[var(--surface-inset)] px-3 py-1.5 rounded-lg border border-subtle flex items-baseline gap-1">
+                                 <div className="bg-[var(--surface-inset)] px-3 py-1.5 rounded-lg border border-subtle flex items-baseline gap-1 shadow-sm">
                                    <span className="text-xl font-bold text-accent-lime font-mono">{workout.targetDistanceKm}</span>
                                    <span className="text-[10px] uppercase font-bold text-muted tracking-wider">km</span>
                                  </div>
                                )}
                                {workout.targetHrZone && (
-                                 <div className="bg-accent-rose/5 px-3 py-1.5 rounded-lg border border-accent-rose/20 flex items-baseline gap-1">
+                                 <div className="bg-accent-rose/5 px-3 py-1.5 rounded-lg border border-accent-rose/20 flex items-baseline gap-1 shadow-sm">
                                    <span className="text-xl font-bold text-accent-rose font-mono">{workout.targetHrZone}</span>
                                  </div>
                                )}
                              </div>
                              
-                             <div className="bg-[var(--surface-inset)] p-4 rounded-xl border border-subtle mb-6 flex-1">
+                             <div className="bg-[var(--surface-inset)] p-4 rounded-xl border border-subtle mb-6 flex-1 shadow-inner">
                                <p className="text-xs text-secondary font-medium leading-relaxed">{workout.description}</p>
                              </div>
                              
@@ -257,20 +264,20 @@ export default function AiCoach() {
                              {!isCompleted && !workout.targetDistanceKm && (
                                <button 
                                  onClick={() => handleMarkCompleted(workout.id)}
-                                 className="w-full py-3 bg-primary hover:scale-[1.02] active:scale-[0.98] text-inverted text-xs font-bold rounded-xl transition-all shadow-md uppercase tracking-widest flex items-center justify-center gap-2 mt-auto"
+                                 className="w-full py-3.5 bg-primary hover:scale-[1.02] active:scale-[0.98] text-inverted text-xs font-bold rounded-xl transition-all shadow-md uppercase tracking-widest flex items-center justify-center gap-2 mt-auto"
                                >
                                  <CheckCircle2 className="h-4 w-4" />
                                  Segna Fatto
                                </button>
                              )}
                              {!isCompleted && workout.targetDistanceKm && (
-                               <div className="w-full py-2.5 bg-[var(--surface-inset)] text-center text-[9px] font-bold text-muted rounded-xl border border-subtle uppercase tracking-widest mt-auto">
-                                 Upload TCX per completare
+                               <div className="w-full py-3 bg-[var(--surface-inset)] text-center text-[9px] font-bold text-secondary rounded-xl border border-subtle uppercase tracking-widest mt-auto shadow-inner flex items-center justify-center">
+                                 Da completare con TCX
                                </div>
                              )}
                            </div>
-                         )}
-                      </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
