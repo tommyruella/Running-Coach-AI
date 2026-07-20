@@ -50,7 +50,10 @@ const LeafletMap: React.FC<{ trackpoints: Trackpoint[] }> = ({ trackpoints }) =>
         zoomControl: false,
         attributionControl: false,
         scrollWheelZoom: false,
-        dragging: true,
+        dragging: !compact,
+        doubleClickZoom: !compact,
+        boxZoom: !compact,
+        touchZoom: !compact,
       });
 
       mapRef.current = map;
