@@ -140,7 +140,7 @@ export default function App() {
     <div className="min-h-screen bg-[var(--window-bg)] text-[var(--text-primary)] transition-colors duration-300 font-sans" id="app-root-container">
 
       {/* Main Content Area */}
-      <main className="w-full max-w-[1200px] mx-auto min-h-screen px-4 sm:px-8 py-8 pb-32">
+      <main className="w-full max-w-[1200px] mx-auto min-h-screen px-4 sm:px-8 pt-14 sm:pt-8 pb-32">
         <AnimatePresence mode="wait">
           <motion.div
             key={isAdminOpen ? 'admin' : activeTab}
