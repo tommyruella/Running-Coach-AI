@@ -83,7 +83,7 @@ function getLocalDateStr(date: Date | string) {
 
 function calculateStreak(activities: ActivityType[]) {
   const dates = [...new Set(activities.map(a => getLocalDateStr(a.date)))].sort().reverse();
-  if (dates.length === 0) return { streak: 0, totalThisMonth: 0 };
+  if (dates.length === 0) return { streak: 0, totalThisMonth: 0, distanceThisMonth: 0 };
 
   const getMondayStr = (date: Date) => {
     const d = new Date(date);
