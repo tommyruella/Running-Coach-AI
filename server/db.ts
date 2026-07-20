@@ -335,7 +335,25 @@ export async function getWeeklyPlans(): Promise<WeeklyPlan[]> {
       .order('weekStartDate', { ascending: false });
 
     if (error) throw error;
-    return (data || []) as WeeklyPlan[];
+    
+    return (data || []).map((plan: any) => {
+      let analysisFeedback = plan.analysisFeedback || '';
+      let tips = plan.tips || [];
+      
+      if (analysisFeedback.includes('|||TIPS|||')) {
+        const parts = analysisFeedback.split('|||TIPS|||');
+        analysisFeedback = parts[0];
+        try {
+          tips = JSON.parse(parts[1]);
+        } catch(e) {}
+      }
+      
+      return {
+        ...plan,
+        analysisFeedback,
+        tips
+      };
+    }) as WeeklyPlan[];
   } catch (error) {
     console.error('Error reading weekly plans from Supabase:', error);
     return [];
@@ -344,10 +362,14 @@ export async function getWeeklyPlans(): Promise<WeeklyPlan[]> {
 
 export async function saveWeeklyPlans(plans: WeeklyPlan[]): Promise<void> {
   try {
+    const plansToSave = plans.map(p => {
+      const { tips, ...rest } = p;
+      return rest;
+    });
     // Upsert all plans — inserts new ones, updates existing ones by id
     const { error } = await supabaseAdmin
       .from('weekly_plans')
-      .upsert(plans);
+      .upsert(plansToSave);
 
     if (error) throw error;
   } catch (error) {

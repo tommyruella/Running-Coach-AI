@@ -709,7 +709,7 @@ La struttura JSON deve essere questa:
       id: `plan_${Date.now()}`,
       weekStartDate,
       theme: generatedPlan.theme || 'Piano Settimanale',
-      analysisFeedback: generatedPlan.analysisFeedback || '',
+      analysisFeedback: (generatedPlan.analysisFeedback || '') + (generatedPlan.tips && generatedPlan.tips.length ? `|||TIPS|||${JSON.stringify(generatedPlan.tips)}` : ''),
       tips: generatedPlan.tips || [],
       workouts: (generatedPlan.workouts || []).map((w: any) => ({
         ...w,
