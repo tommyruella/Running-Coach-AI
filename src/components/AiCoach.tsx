@@ -263,7 +263,8 @@ export default function AiCoach() {
                         <p className="text-sm text-secondary font-medium leading-relaxed">{workout.description}</p>
                       </div>
                       
-                      {!isCompleted && (
+                      {/* Mostra il bottone "Segna come Fatto" solo per allenamenti senza GPS (es. Core Stability) */}
+                      {!isCompleted && !workout.targetDistanceKm && (
                         <button 
                           onClick={() => handleMarkCompleted(workout.id)}
                           className="w-full py-3.5 bg-primary hover:scale-[1.02] active:scale-[0.98] text-inverted text-sm font-bold rounded-xl transition-all shadow-md uppercase tracking-widest flex items-center justify-center gap-2"
@@ -271,6 +272,11 @@ export default function AiCoach() {
                           <CheckCircle2 className="h-4 w-4" />
                           Segna come Fatto
                         </button>
+                      )}
+                      {!isCompleted && workout.targetDistanceKm && (
+                        <p className="text-center text-[10px] uppercase font-bold tracking-widest text-muted mt-4 bg-[var(--surface-inset)] py-2 rounded-lg border border-subtle">
+                          Da completare tramite upload TCX
+                        </p>
                       )}
                     </div>
                   )}
