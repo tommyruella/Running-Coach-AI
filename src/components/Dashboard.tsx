@@ -123,8 +123,11 @@ function calculateStreak(activities: ActivityType[]) {
   const todayStr = getLocalDateStr(new Date());
   const thisMonthStr = todayStr.substring(0, 7);
   const totalThisMonth = dates.filter(d => d.startsWith(thisMonthStr)).length;
+  const distanceThisMonth = activities
+    .filter(a => getLocalDateStr(a.date).startsWith(thisMonthStr))
+    .reduce((sum, a) => sum + a.distanceKm, 0);
 
-  return { streak, totalThisMonth };
+  return { streak, totalThisMonth, distanceThisMonth };
 }
 
 interface MiniChartCardProps {
@@ -220,7 +223,7 @@ export default function Dashboard({ activities, onNavigateToHistory, onSecretUnl
     return { count, totalKm, totalMin, avgHr, avgPaceMin, totalKcal, deltaKm };
   }, [filtered, activities, range]);
 
-  const { streak, totalThisMonth } = useMemo(() => calculateStreak(activities), [activities]);
+  const { streak, totalThisMonth, distanceThisMonth } = useMemo(() => calculateStreak(activities), [activities]);
 
   const calendarGrid = useMemo(() => {
     const today = new Date();
@@ -276,69 +279,100 @@ export default function Dashboard({ activities, onNavigateToHistory, onSecretUnl
     <div className="space-y-10" id="dashboard-tab">
 
       {/* Hero Section */}
-      <div className="flex flex-col lg:flex-row gap-6">
+      <div className="mb-4">
+        <h1 
+          onClick={handleTitleTap}
+          className="text-3xl font-bold tracking-tight text-primary select-none"
+        >
+          Overview
+        </h1>
+      </div>
+      
+      <div className="flex flex-col lg:flex-row gap-6 items-stretch">
         
-        {/* Left: Streak & Title */}
-        <div className="flex-1 flex flex-col gap-4">
-          <div className="flex items-center justify-between">
-            <h1 
-              onClick={handleTitleTap}
-              className="text-3xl font-bold tracking-tight text-primary select-none"
-            >
-              Overview
-            </h1>
-          </div>
-
-          <div className="clean-panel p-6 flex flex-col justify-center relative overflow-hidden flex-1">
-            <h2 className="text-secondary font-bold uppercase tracking-wider text-xs mb-1 flex items-center gap-1.5">
-              <Flame className="h-4 w-4 text-accent-amber" />
-              Weekly Streak
-            </h2>
-            <div className="flex items-end gap-2 mt-2">
-              <span className="text-6xl font-black text-accent-lime leading-none tracking-tighter">{streak}</span>
-              <span className="text-muted font-bold mb-1.5 uppercase text-xs">settimane<br />di fila</span>
+        {/* Left: Athlete Status (Circular Ring) */}
+        <div className="flex-1 clean-panel p-6 flex flex-col justify-center items-center relative overflow-hidden">
+          <h2 className="absolute top-6 left-6 text-secondary font-bold uppercase tracking-wider text-[10px] flex items-center gap-1.5">
+            <Flame className="h-3.5 w-3.5 text-accent-amber" />
+            Il tuo Status
+          </h2>
+          
+          <div className="relative w-40 h-40 sm:w-48 sm:h-48 flex items-center justify-center mt-6">
+            {/* SVG Ring Background */}
+            <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 100 100">
+              <circle cx="50" cy="50" r="42" stroke="var(--border-subtle)" strokeWidth="7" fill="none" />
+              {/* SVG Ring Progress */}
+              <circle 
+                cx="50" cy="50" r="42" 
+                stroke="#CCFF00" 
+                strokeWidth="7" 
+                fill="none" 
+                strokeLinecap="round"
+                strokeDasharray={`${2 * Math.PI * 42}`}
+                strokeDashoffset={`${2 * Math.PI * 42 * (1 - Math.min(distanceThisMonth / 50, 1))}`}
+                className="transition-all duration-1000 ease-out"
+                style={{ filter: 'drop-shadow(0px 0px 4px rgba(204,255,0,0.4))' }}
+              />
+            </svg>
+            <div className="flex flex-col items-center justify-center relative z-10 text-center mt-1">
+              <span className="text-4xl sm:text-5xl font-black text-primary leading-none tracking-tighter">{streak}</span>
+              <span className="text-muted font-bold uppercase text-[9px] tracking-widest mt-1">Settimane<br/>di Fila</span>
             </div>
-            <p className="text-secondary text-sm mt-4 font-medium">Hai registrato <strong className="text-primary">{totalThisMonth} allenamenti</strong> in questo mese. Continua così!</p>
+          </div>
+          
+          <div className="text-center mt-6">
+            <div className="flex items-end justify-center gap-1.5 mb-2">
+              <span className="text-xl font-black tracking-tight text-primary leading-none">{distanceThisMonth.toFixed(1)} <span className="text-sm font-bold text-secondary">km</span></span>
+              <span className="text-xs text-muted font-medium mb-0.5">/ 50 km mensili</span>
+            </div>
+            <p className="text-xs text-secondary font-medium max-w-[220px] mx-auto">
+              {distanceThisMonth >= 50 
+                ? "Obiettivo mensile raggiunto! Sei inarrestabile. 🚀" 
+                : "Ottimo lavoro! Continua così per raggiungere l'obiettivo."}
+            </p>
           </div>
         </div>
 
         {/* Right: Latest Activity Map */}
         {latestActivity && (
-          <div className="lg:w-[50%] clean-panel overflow-hidden flex flex-col cursor-pointer transition-shadow hover:shadow-lg" onClick={onNavigateToHistory}>
-            <div className="h-[200px] w-full relative surface-inset">
+          <div className="flex-1 clean-panel overflow-hidden flex flex-col cursor-pointer transition-shadow hover:shadow-lg" onClick={onNavigateToHistory}>
+            {/* Full Bleed Map */}
+            <div className="h-[200px] sm:h-[220px] w-full relative bg-[var(--window-bg)]">
               {mapBounds && latestTrackCoords ? (
                 <MapContainer bounds={mapBounds} scrollWheelZoom={true} dragging={false} zoomControl={false} className="h-full w-full" attributionControl={false}>
                   <TileLayer url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png" />
                   <Polyline positions={latestTrackCoords} color="#a3e635" weight={5} opacity={0.9} />
                 </MapContainer>
               ) : (
-                <div className="absolute inset-0 flex items-center justify-center text-muted">
+                <div className="absolute inset-0 flex items-center justify-center text-muted bg-[var(--surface-inset)]">
                   <MapPin className="h-10 w-10 opacity-30 mb-2" />
                   <span className="text-xs uppercase font-bold tracking-widest text-faint">Nessun GPS</span>
                 </div>
               )}
-              <div className="absolute top-4 left-4 mac-popover text-primary text-[10px] px-2.5 py-1.5 rounded-md font-bold uppercase tracking-wider flex items-center gap-1.5 z-[1000]">
+              <div className="absolute top-4 left-4 mac-popover bg-[var(--surface-popover)] text-primary text-[9px] px-2.5 py-1.5 rounded-full font-bold uppercase tracking-widest flex items-center gap-1.5 z-[1000] shadow-sm">
                 <MapPin className="h-3 w-3 text-accent-lime" />
                 Ultima Attività
               </div>
             </div>
-            <div className="p-6 flex-1 flex flex-col justify-between">
-              <div>
-                <h3 className="text-lg font-bold text-primary mb-1 truncate">{latestActivity.name}</h3>
-                <p className="text-xs text-secondary">{new Date(latestActivity.date).toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
+            
+            {/* Stats below Map */}
+            <div className="p-6 flex flex-col flex-1 bg-[var(--surface-popover)]">
+              <div className="mb-5">
+                <h3 className="text-xl font-bold text-primary mb-1 truncate">{latestActivity.name}</h3>
+                <p className="text-xs font-medium text-secondary">{new Date(latestActivity.date).toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
               </div>
-              <div className="grid grid-cols-3 gap-2 mt-5 pt-5 border-t border-subtle">
+              <div className="grid grid-cols-3 gap-4 pt-5 border-t border-subtle mt-auto">
                 <div>
-                  <span className="text-[9px] text-muted uppercase block tracking-wider font-semibold">Distanza</span>
-                  <span className="font-mono font-bold text-lg text-primary mt-0.5 block">{latestActivity.distanceKm.toFixed(2)} <span className="text-[10px] text-muted font-normal">km</span></span>
+                  <span className="text-[9px] text-muted uppercase block tracking-widest font-bold mb-1">Distanza</span>
+                  <span className="font-display font-bold text-2xl text-primary block leading-none tracking-tighter">{latestActivity.distanceKm.toFixed(2)} <span className="text-[10px] text-secondary font-sans font-medium uppercase tracking-normal">km</span></span>
                 </div>
                 <div>
-                  <span className="text-[9px] text-muted uppercase block tracking-wider font-semibold">Passo</span>
-                  <span className="font-mono font-bold text-lg text-primary mt-0.5 block">{latestActivity.avgPace} <span className="text-[10px] text-muted font-normal">/km</span></span>
+                  <span className="text-[9px] text-muted uppercase block tracking-widest font-bold mb-1">Passo</span>
+                  <span className="font-display font-bold text-2xl text-primary block leading-none tracking-tighter">{latestActivity.avgPace} <span className="text-[10px] text-secondary font-sans font-medium uppercase tracking-normal">/km</span></span>
                 </div>
                 <div>
-                  <span className="text-[9px] text-muted uppercase block tracking-wider font-semibold">FC Media</span>
-                  <span className="font-mono font-bold text-lg text-primary mt-0.5 block">{latestActivity.avgHeartRate || '--'} <span className="text-[10px] text-muted font-normal">bpm</span></span>
+                  <span className="text-[9px] text-muted uppercase block tracking-widest font-bold mb-1">BPM</span>
+                  <span className="font-display font-bold text-2xl text-accent-rose block leading-none tracking-tighter">{latestActivity.avgHeartRate || '--'} <span className="text-[10px] text-secondary font-sans font-medium uppercase tracking-normal">bpm</span></span>
                 </div>
               </div>
             </div>
