@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Bot, Calendar, CheckCircle2, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Play, Settings, Loader2, Lightbulb } from 'lucide-react';
+import { Bot, Calendar, CheckCircle2, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Play, Settings, Loader2, Lightbulb, AlertTriangle, X } from 'lucide-react';
 import { WeeklyPlan, PlannedWorkout, CoachSettings, Activity } from '../types.js';
 
 export default function AiCoach() {
@@ -13,6 +13,7 @@ export default function AiCoach() {
   const [expandedFeedback, setExpandedFeedback] = useState(false);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [linkModalWorkout, setLinkModalWorkout] = useState<PlannedWorkout | null>(null);
+  const [errorModal, setErrorModal] = useState<string | null>(null);
   
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
@@ -66,9 +67,9 @@ export default function AiCoach() {
       }
       setPlan(data);
       setNotes('');
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      alert('Errore durante la generazione del piano.');
+      setErrorModal(e.message || 'Errore sconosciuto durante la generazione del piano.');
     } finally {
       setGenerating(false);
     }
@@ -416,6 +417,31 @@ export default function AiCoach() {
         </div>,
         document.body
       )}
+
+      {/* Modal di Errore Generazione AI */}
+      {errorModal && createPortal((
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-[var(--window-bg)] w-full max-w-md rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 border border-subtle">
+            <div className="p-6">
+              <div className="flex items-center gap-4 mb-4 text-red-500">
+                <AlertTriangle className="h-8 w-8 shrink-0" />
+                <h2 className="text-xl font-black text-primary">Errore di Generazione</h2>
+              </div>
+              <p className="text-sm text-secondary font-medium leading-relaxed mb-6 bg-red-500/10 p-4 rounded-xl border border-red-500/20">
+                {errorModal}
+              </p>
+              <div className="flex justify-end">
+                <button
+                  onClick={() => setErrorModal(null)}
+                  className="bg-[var(--surface-hover)] text-primary px-6 py-2.5 rounded-xl font-bold text-sm hover:bg-[var(--surface-popover)] transition-colors"
+                >
+                  Chiudi
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ), document.body)}
     </div>
   );
 }
