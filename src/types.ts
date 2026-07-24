@@ -90,3 +90,16 @@ export interface WeeklyPlan {
 export interface CoachSettings {
   availableDays: number[]; // Array of days, es. [1, 3, 5, 0] per Lun, Mer, Ven, Dom
 }
+
+export interface DailyMetrics {
+  id?: string;
+  date: string;
+  sleep_duration?: number;
+  sleep_score?: number;
+  resting_hr?: number;
+  weight_kg?: number;
+  calories_total?: number;
+  calories_active?: number;
+  steps?: number;
+  stress_level?: number;
+}

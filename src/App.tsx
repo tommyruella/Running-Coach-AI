@@ -32,6 +32,7 @@ export default function App() {
 
   const [activities, setActivities] = useState<ActivityType[]>([]);
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
+  const [dailyMetrics, setDailyMetrics] = useState<any[]>([]);
   const [stats, setStats] = useState<RunningStats>({
     totalActivities: 0,
     totalKm: 0,
@@ -55,6 +56,9 @@ export default function App() {
 
       const chatRes = await fetch('/api/chat-history');
       if (chatRes.ok) setChatHistory((await chatRes.json()).history);
+
+      const metricsRes = await fetch('/api/metrics/daily');
+      if (metricsRes.ok) setDailyMetrics(await metricsRes.json());
     } catch (error) {
       console.error('Error loading data:', error);
     }
@@ -158,6 +162,22 @@ export default function App() {
               <Dashboard
                 stats={stats}
                 activities={activities}
+                dailyMetrics={dailyMetrics}
+                onSyncGarmin={async () => {
+                  try {
+                    const res = await fetch('/api/garmin/sync', { method: 'POST' });
+                    if (res.ok) {
+                      await fetchData();
+                      alert('Sincronizzazione Garmin completata!');
+                    } else {
+                      const data = await res.json();
+                      alert(`Errore durante la sincronizzazione: ${data.error}`);
+                    }
+                  } catch(e) {
+                    console.error('Error syncing garmin', e);
+                    alert('Impossibile contattare il server.');
+                  }
+                }}
                 onNavigateToHistory={() => setActiveTab('history')}
                 onSecretUnlock={() => setIsAdminOpen(true)}
               />

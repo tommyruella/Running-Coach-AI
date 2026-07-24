@@ -729,6 +729,41 @@ La struttura JSON deve essere questa:
 });
 
 
+/**
+ * 8. API: Garmin Connect Sync & Metrics
+ */
+import { syncGarminMetrics } from './server/garminClient.js';
+import { getDailyMetrics, saveDailyMetrics } from './server/db.js';
+
+app.post('/api/garmin/sync', async (req, res) => {
+  try {
+    const email = process.env.GARMIN_EMAIL;
+    const password = process.env.GARMIN_PASSWORD;
+
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Credenziali Garmin non configurate nelle variabili di ambiente (GARMIN_EMAIL e GARMIN_PASSWORD).' });
+    }
+
+    const metrics = await syncGarminMetrics(email, password);
+    await saveDailyMetrics([metrics]);
+
+    res.json({ success: true, metrics });
+  } catch (error: any) {
+    console.error('Errore durante la sincronizzazione Garmin:', error);
+    const msg = error?.message || 'Impossibile sincronizzare i dati Garmin.';
+    res.status(500).json({ error: msg });
+  }
+});
+
+app.get('/api/metrics/daily', async (req, res) => {
+  try {
+    const metrics = await getDailyMetrics();
+    res.json(metrics);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Express server & Vite Setup
 async function startServer() {
   await initializeDb(); // Now safe, does nothing locally or on Vercel

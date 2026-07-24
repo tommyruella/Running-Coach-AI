@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useMemo } from 'react';
-import { Activity, Calendar, Clock, Heart, Zap, ChevronRight, Flame, TrendingUp, TrendingDown, MapPin } from 'lucide-react';
+import { Activity, Calendar, Clock, Heart, Zap, ChevronRight, Flame, TrendingUp, TrendingDown, MapPin, Moon } from 'lucide-react';
 import { MapContainer, TileLayer, Polyline } from 'react-leaflet';
 import {
   ResponsiveContainer,
@@ -21,6 +21,8 @@ import AiCoach from './AiCoach';
 interface DashboardProps {
   stats: RunningStats;
   activities: ActivityType[];
+  dailyMetrics?: any[];
+  onSyncGarmin?: () => void;
   onNavigateToHistory: () => void;
   onSecretUnlock?: () => void;
 }
@@ -170,7 +172,7 @@ function MiniChartCard({ title, subtitle, value, unit, delta, deltaLabel, childr
   );
 }
 
-export default function Dashboard({ activities, onNavigateToHistory, onSecretUnlock }: DashboardProps) {
+export default function Dashboard({ activities, dailyMetrics = [], onSyncGarmin, onNavigateToHistory, onSecretUnlock }: DashboardProps) {
   const [range, setRange] = useState<Range>('3M');
   const tapCountRef = React.useRef(0);
   const tapTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
@@ -466,6 +468,55 @@ export default function Dashboard({ activities, onNavigateToHistory, onSecretUnl
         )}
 
       </div>
+      {/* Daily Metrics Section */}
+      <div className="pt-6 border-t border-subtle space-y-6">
+        <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
+          <div>
+            <h2 className="text-lg font-bold text-primary tracking-tight flex items-center gap-2">
+              <Heart className="h-5 w-5 text-accent-rose" />
+              Metriche Salute Giornaliere
+            </h2>
+            <p className="text-xs text-secondary mt-1">Dati estratti automaticamente da Garmin Connect</p>
+          </div>
+          {onSyncGarmin && (
+            <button
+              onClick={onSyncGarmin}
+              className="px-4 py-2 bg-[var(--surface-popover)] border border-subtle rounded-md text-xs font-bold text-primary hover:bg-[var(--surface-inset)] transition-colors flex items-center gap-2 cursor-pointer"
+            >
+              <Activity className="w-4 h-4 text-[#CCFF00]" />
+              Sincronizza Garmin
+            </button>
+          )}
+        </div>
+
+        {dailyMetrics && dailyMetrics.length > 0 ? (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[
+              { label: 'Sonno', icon: Moon, color: 'text-indigo-400', value: dailyMetrics[0].sleep_duration ? (dailyMetrics[0].sleep_duration / 60).toFixed(1) : '--', unit: 'h' },
+              { label: 'Battito a Riposo', icon: Heart, color: 'text-accent-rose', value: dailyMetrics[0].resting_hr || '--', unit: 'bpm' },
+              { label: 'Calorie', icon: Flame, color: 'text-orange-500', value: dailyMetrics[0].calories_total || '--', unit: 'kcal' },
+              { label: 'Peso', icon: TrendingDown, color: 'text-cyan-400', value: dailyMetrics[0].weight_kg ? dailyMetrics[0].weight_kg.toFixed(1) : '--', unit: 'kg' },
+            ].map((metric, i) => (
+              <div key={i} className="clean-panel p-5 flex flex-col justify-center gap-2">
+                <div className="flex items-center gap-2 text-secondary">
+                  <metric.icon className={`w-4 h-4 ${metric.color}`} />
+                  <span className="text-[10px] font-bold uppercase tracking-wider">{metric.label}</span>
+                </div>
+                <div className="flex items-end gap-1">
+                  <span className="text-2xl font-black font-mono text-primary leading-none">{metric.value}</span>
+                  <span className="text-xs font-medium text-muted mb-0.5">{metric.unit}</span>
+                </div>
+                <span className="text-[9px] text-muted">Aggiornato: {dailyMetrics[0].date}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="clean-panel p-10 text-center text-muted text-xs font-mono uppercase">
+            Nessuna metrica giornaliera trovata. Effettua la sincronizzazione.
+          </div>
+        )}
+      </div>
+
     </div>
   );
 }

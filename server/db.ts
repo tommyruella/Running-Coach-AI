@@ -5,7 +5,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import { Activity, ChatMessage } from '../src/types.js';
+import { Activity, ChatMessage, DailyMetrics } from '../src/types.js';
 import { parseTcx } from './tcxParser.js';
 
 const DATA_DIR = path.join(process.cwd(), 'data');
@@ -374,5 +374,32 @@ export async function saveWeeklyPlans(plans: WeeklyPlan[]): Promise<void> {
     if (error) throw error;
   } catch (error) {
     console.error('Error saving weekly plans to Supabase:', error);
+  }
+}
+
+export async function getDailyMetrics(): Promise<DailyMetrics[]> {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('daily_metrics')
+      .select('*')
+      .order('date', { ascending: false });
+
+    if (error) throw error;
+    return (data || []) as DailyMetrics[];
+  } catch (error) {
+    console.error('Error fetching daily metrics from Supabase:', error);
+    return [];
+  }
+}
+
+export async function saveDailyMetrics(metrics: DailyMetrics[]): Promise<void> {
+  try {
+    const { error } = await supabaseAdmin
+      .from('daily_metrics')
+      .upsert(metrics, { onConflict: 'date' });
+
+    if (error) throw error;
+  } catch (error) {
+    console.error('Error saving daily metrics to Supabase:', error);
   }
 }
