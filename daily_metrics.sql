@@ -6,12 +6,21 @@ CREATE TABLE IF NOT EXISTS daily_metrics (
     date DATE UNIQUE NOT NULL,
     sleep_duration INTEGER, -- in minutes
     sleep_score INTEGER,
+    sleep_deep INTEGER, -- in minutes
+    sleep_light INTEGER, -- in minutes
+    sleep_rem INTEGER, -- in minutes
+    sleep_awake INTEGER, -- in minutes
     resting_hr INTEGER,
+    hrv_avg NUMERIC,
+    body_battery_change INTEGER,
+    sleep_timeline JSONB,
     weight_kg NUMERIC,
     calories_total INTEGER,
     calories_active INTEGER,
     steps INTEGER,
     stress_level INTEGER,
+    respiration_avg NUMERIC,
+    spo2_avg NUMERIC,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 

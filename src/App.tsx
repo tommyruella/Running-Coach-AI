@@ -22,10 +22,17 @@ export default function App() {
   });
 
   useEffect(() => {
+    const themeColorMeta = document.querySelector('meta[name="theme-color"]');
+    const statusBarMeta = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+
     if (theme === 'light') {
       document.body.classList.add('light-theme');
+      if (themeColorMeta) themeColorMeta.setAttribute('content', '#e5e5e5');
+      if (statusBarMeta) statusBarMeta.setAttribute('content', 'default');
     } else {
       document.body.classList.remove('light-theme');
+      if (themeColorMeta) themeColorMeta.setAttribute('content', '#1e1e1e');
+      if (statusBarMeta) statusBarMeta.setAttribute('content', 'black-translucent');
     }
     localStorage.setItem('theme', theme);
   }, [theme]);

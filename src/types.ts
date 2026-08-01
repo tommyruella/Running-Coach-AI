@@ -94,12 +94,21 @@ export interface CoachSettings {
 export interface DailyMetrics {
   id?: string;
   date: string;
-  sleep_duration?: number;
+  sleep_duration?: number; // in minutes
   sleep_score?: number;
+  sleep_deep?: number; // in minutes
+  sleep_light?: number; // in minutes
+  sleep_rem?: number; // in minutes
+  sleep_awake?: number; // in minutes
   resting_hr?: number;
+  hrv_avg?: number;
+  body_battery_change?: number;
+  sleep_timeline?: { startGMT: string; endGMT: string; activityLevel: number }[];
   weight_kg?: number;
   calories_total?: number;
   calories_active?: number;
   steps?: number;
   stress_level?: number;
+  respiration_avg?: number;
+  spo2_avg?: number;
 }
