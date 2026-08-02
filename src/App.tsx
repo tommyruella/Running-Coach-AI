@@ -5,16 +5,16 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Calendar, Sparkles, Home, TrendingUp, Sun, Moon } from 'lucide-react';
+import { Calendar, Sparkles, Home, TrendingUp, Sun, Moon, Heart } from 'lucide-react';
 import { Activity as ActivityType, ChatMessage, RunningStats } from './types.js';
 import Dashboard from './components/Dashboard.tsx';
-import Chat from './components/Chat.tsx';
+import Health from './components/Health.tsx';
 import History from './components/History.tsx';
 import Admin from './components/Admin.tsx';
 import ActivityDetail from './components/ActivityDetail.tsx';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'history' | 'chat' | 'activity_detail'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'history' | 'health' | 'activity_detail'>('dashboard');
   const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
@@ -37,10 +37,10 @@ export default function App() {
     localStorage.setItem('theme', theme);
   }, [theme]);
 
-  const [activities, setActivities] = useState<ActivityType[]>([]);
-  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
-  const [dailyMetrics, setDailyMetrics] = useState<any[]>([]);
-  const [stats, setStats] = useState<RunningStats>({
+  const [activities, setActivities] = useState<ActivityType[]>(() => JSON.parse(localStorage.getItem('cachedActivities') || '[]'));
+  const [chatHistory, setChatHistory] = useState<ChatMessage[]>(() => JSON.parse(localStorage.getItem('cachedChatHistory') || '[]'));
+  const [dailyMetrics, setDailyMetrics] = useState<any[]>(() => JSON.parse(localStorage.getItem('cachedDailyMetrics') || '[]'));
+  const [stats, setStats] = useState<RunningStats>(() => JSON.parse(localStorage.getItem('cachedStats') || 'null') || {
     totalActivities: 0,
     totalKm: 0,
     totalDurationHours: 0,
@@ -55,17 +55,33 @@ export default function App() {
 
   const fetchData = async () => {
     try {
-      const statsRes = await fetch('/api/stats');
-      if (statsRes.ok) setStats(await statsRes.json());
+      const [statsRes, actRes, chatRes, metricsRes] = await Promise.all([
+        fetch('/api/stats'),
+        fetch('/api/activities?limit=100'),
+        fetch('/api/chat-history'),
+        fetch('/api/metrics/daily')
+      ]);
 
-      const actRes = await fetch('/api/activities?limit=100');
-      if (actRes.ok) setActivities((await actRes.json()).activities);
-
-      const chatRes = await fetch('/api/chat-history');
-      if (chatRes.ok) setChatHistory((await chatRes.json()).history);
-
-      const metricsRes = await fetch('/api/metrics/daily');
-      if (metricsRes.ok) setDailyMetrics(await metricsRes.json());
+      if (statsRes.ok) {
+        const s = await statsRes.json();
+        setStats(s);
+        localStorage.setItem('cachedStats', JSON.stringify(s));
+      }
+      if (actRes.ok) {
+        const a = (await actRes.json()).activities;
+        setActivities(a);
+        localStorage.setItem('cachedActivities', JSON.stringify(a));
+      }
+      if (chatRes.ok) {
+        const c = (await chatRes.json()).history;
+        setChatHistory(c);
+        localStorage.setItem('cachedChatHistory', JSON.stringify(c));
+      }
+      if (metricsRes.ok) {
+        const m = await metricsRes.json();
+        setDailyMetrics(m);
+        localStorage.setItem('cachedDailyMetrics', JSON.stringify(m));
+      }
     } catch (error) {
       console.error('Error loading data:', error);
     }
@@ -188,13 +204,24 @@ export default function App() {
                 onNavigateToHistory={() => setActiveTab('history')}
                 onSecretUnlock={() => setIsAdminOpen(true)}
               />
-            ) : activeTab === 'chat' ? (
-              <Chat
-                chatHistory={chatHistory}
-                onSendMessage={handleSendMessage}
-                onClearHistory={handleClearChatHistory}
-                isSending={isSending}
-                onClose={() => setActiveTab('dashboard')}
+            ) : activeTab === 'health' ? (
+              <Health
+                dailyMetrics={dailyMetrics}
+                onSyncGarmin={async () => {
+                  try {
+                    const res = await fetch('/api/garmin/sync', { method: 'POST' });
+                    if (res.ok) {
+                      await fetchData();
+                      alert('Sincronizzazione Garmin completata!');
+                    } else {
+                      const data = await res.json();
+                      alert(`Errore durante la sincronizzazione: ${data.error}`);
+                    }
+                  } catch(e) {
+                    console.error('Error syncing garmin', e);
+                    alert('Impossibile contattare il server.');
+                  }
+                }}
               />
             ) : activeTab === 'activity_detail' && selectedActivityId ? (
               <ActivityDetail
@@ -227,7 +254,7 @@ export default function App() {
           {/* Left Navigation Buttons */}
           <div className="flex items-center gap-2 flex-1 justify-around">
             {[
-              { id: 'chat', icon: Sparkles },
+              { id: 'health', icon: Heart },
               { id: 'dashboard', icon: Home },
               { id: 'history', icon: Calendar },
             ].map((item) => {

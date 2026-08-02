@@ -11,6 +11,7 @@ import {
   AreaChart, Area,
   LineChart, Line,
   BarChart, Bar,
+  PieChart, Pie, Cell,
   XAxis, YAxis,
   Tooltip,
   CartesianGrid,
@@ -68,7 +69,7 @@ interface TooltipProps {
   formatValue?: (v: number) => string;
 }
 
-function MinimalTooltip({ active, payload, label, unit, formatValue }: TooltipProps) {
+export function MinimalTooltip({ active, payload, label, unit, formatValue }: TooltipProps) {
   if (!active || !payload?.length) return null;
   const v = payload[0]?.value;
   return (
@@ -144,18 +145,20 @@ interface MiniChartCardProps {
   children: React.ReactNode;
 }
 
-function MiniChartCard({ title, subtitle, value, unit, delta, deltaLabel, children }: MiniChartCardProps) {
+export function MiniChartCard({ title, subtitle, value, unit, delta, deltaLabel, children }: MiniChartCardProps) {
   const isPositiveDelta = delta !== undefined && delta !== null && delta > 0;
   const isNegativeDelta = delta !== undefined && delta !== null && delta < 0;
   return (
-    <div className="clean-panel p-5 flex flex-col gap-4">
+    <div className="clean-panel p-5 flex flex-col justify-between h-full min-h-[190px]">
       <div className="flex items-start justify-between">
         <div>
           <p className="text-[10px] text-secondary uppercase tracking-wider font-medium">{title}</p>
-          <div className="flex items-end gap-1.5 mt-1">
-            <span className="text-2xl font-bold font-mono text-primary">{value}</span>
-            <span className="text-xs text-muted mb-0.5">{unit}</span>
-          </div>
+          {value ? (
+            <div className="flex items-end gap-1.5 mt-1">
+              <span className="text-2xl font-bold font-mono text-primary">{value}</span>
+              <span className="text-xs text-muted mb-0.5">{unit}</span>
+            </div>
+          ) : null}
           {delta !== undefined && delta !== null && (
             <div className={`flex items-center gap-1 mt-1 text-[10px] font-mono ${isPositiveDelta ? 'text-accent-lime' : isNegativeDelta ? 'text-accent-rose' : 'text-muted'}`}>
               {isPositiveDelta ? <TrendingUp className="h-3 w-3" /> : isNegativeDelta ? <TrendingDown className="h-3 w-3" /> : null}
@@ -165,7 +168,7 @@ function MiniChartCard({ title, subtitle, value, unit, delta, deltaLabel, childr
         </div>
         <p className="text-[10px] text-muted mt-1">{subtitle}</p>
       </div>
-      <div className="h-24 w-full">
+      <div className="flex-1 w-full flex items-center justify-center pt-2 min-h-[100px]">
         {children}
       </div>
     </div>
@@ -253,6 +256,36 @@ export default function Dashboard({ activities, dailyMetrics = [], onSyncGarmin,
     return grid;
   }, [activities]);
 
+  const lastWeight = useMemo(() => {
+    if (!dailyMetrics || dailyMetrics.length === 0) return null;
+    for (const m of dailyMetrics) {
+      if (m.weight_kg != null && m.weight_kg > 0) return m.weight_kg;
+    }
+    return null;
+  }, [dailyMetrics]);
+
+  const formatSleepDuration = (mins: number | undefined | null) => {
+    if (!mins) return '--';
+    const h = Math.floor(mins / 60);
+    const m = Math.round(mins % 60);
+    return `${h}h ${m}m`;
+  };
+
+  const getTrend = (key: string, currentVal: number | null | undefined, isLowerBetter = false, days = 7) => {
+    if (currentVal == null || !dailyMetrics || dailyMetrics.length < 2) return null;
+    // Escludiamo valori a 0 (come il peso vuoto) e prendiamo i giorni precedenti
+    const previousDays = dailyMetrics.slice(1, days + 1).filter(m => {
+      const val = m[key as keyof typeof m];
+      return val != null && (typeof val === 'number' ? val > 0 : true);
+    });
+    if (previousDays.length === 0) return null;
+    const avg = previousDays.reduce((sum, m) => sum + (m[key as keyof typeof m] as number), 0) / previousDays.length;
+    const diff = currentVal - avg;
+    const percent = (diff / avg) * 100;
+    const isGood = isLowerBetter ? diff <= 0 : diff >= 0;
+    return { percent, isGood };
+  };
+
   const tickStyle = { fill: 'var(--text-muted)', fontSize: 9, fontFamily: 'monospace' };
   const gridColor = 'var(--border-subtle)';
 
@@ -260,13 +293,29 @@ export default function Dashboard({ activities, dailyMetrics = [], onSyncGarmin,
     return activities.length > 0 ? [...activities].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0] : null;
   }, [activities]);
 
+  const [fullLatestActivity, setFullLatestActivity] = useState<ActivityType | null>(null);
+  React.useEffect(() => {
+    if (latestActivity) {
+      if (!latestActivity.trackpoints) {
+        fetch(`/api/activities/${latestActivity.id}`)
+          .then(res => res.json())
+          .then(data => setFullLatestActivity(data))
+          .catch(console.error);
+      } else {
+        setFullLatestActivity(latestActivity);
+      }
+    } else {
+      setFullLatestActivity(null);
+    }
+  }, [latestActivity]);
+
   const latestTrackCoords = useMemo(() => {
-    if (!latestActivity || !latestActivity.trackpoints) return null;
-    const coords: [number, number][] = latestActivity.trackpoints
+    if (!fullLatestActivity || !fullLatestActivity.trackpoints) return null;
+    const coords: [number, number][] = fullLatestActivity.trackpoints
       .filter(tp => tp.latitude && tp.longitude)
       .map(tp => [tp.latitude!, tp.longitude!]);
     return coords.length > 0 ? coords : null;
-  }, [latestActivity]);
+  }, [fullLatestActivity]);
 
   const mapBounds = useMemo(() => {
     if (!latestTrackCoords) return null;
@@ -468,164 +517,6 @@ export default function Dashboard({ activities, dailyMetrics = [], onSyncGarmin,
         )}
 
       </div>
-      {/* Daily Metrics Section */}
-      <div className="pt-6 border-t border-subtle space-y-6">
-        <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
-          <div>
-            <h2 className="text-lg font-bold text-primary tracking-tight flex items-center gap-2">
-              <Heart className="h-5 w-5 text-accent-rose" />
-              Metriche Salute Giornaliere
-            </h2>
-            <p className="text-xs text-secondary mt-1">Dati estratti automaticamente da Garmin Connect</p>
-          </div>
-          {onSyncGarmin && (
-            <button
-              onClick={onSyncGarmin}
-              className="px-4 py-2 bg-[var(--surface-popover)] border border-subtle rounded-md text-xs font-bold text-primary hover:bg-[var(--surface-inset)] transition-colors flex items-center gap-2 cursor-pointer"
-            >
-              <Activity className="w-4 h-4 text-[#CCFF00]" />
-              Sincronizza Garmin
-            </button>
-          )}
-        </div>
-
-        {dailyMetrics && dailyMetrics.length > 0 ? (
-          <div className="space-y-6">
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-              {[
-                { label: 'Sonno Ieri', icon: Moon, color: 'text-indigo-400', value: dailyMetrics[0].sleep_duration ? (dailyMetrics[0].sleep_duration / 60).toFixed(1) : '--', unit: 'h' },
-                { label: 'Sonno Medio', icon: Moon, color: 'text-indigo-300', value: (dailyMetrics.filter(m => m.sleep_duration).reduce((s, m) => s + (m.sleep_duration || 0), 0) / (dailyMetrics.filter(m => m.sleep_duration).length || 1) / 60).toFixed(1), unit: 'h' },
-                { label: 'Battito a Riposo', icon: Heart, color: 'text-accent-rose', value: dailyMetrics[0].resting_hr || '--', unit: 'bpm' },
-                { label: 'HRV Medio', icon: Activity, color: 'text-fuchsia-400', value: dailyMetrics[0].hrv_avg || '--', unit: 'ms' },
-                { label: 'Body Battery', icon: Zap, color: 'text-[#CCFF00]', value: dailyMetrics[0].body_battery_change ? (dailyMetrics[0].body_battery_change > 0 ? `+${dailyMetrics[0].body_battery_change}` : dailyMetrics[0].body_battery_change) : '--', unit: 'pt' },
-                { label: 'Peso', icon: TrendingDown, color: 'text-cyan-400', value: dailyMetrics[0].weight_kg ? dailyMetrics[0].weight_kg.toFixed(1) : '--', unit: 'kg' },
-              ].map((metric, i) => (
-                <div key={i} className="clean-panel p-5 flex flex-col justify-center gap-2">
-                  <div className="flex items-center gap-2 text-secondary">
-                    <metric.icon className={`w-4 h-4 ${metric.color}`} />
-                    <span className="text-[10px] font-bold uppercase tracking-wider">{metric.label}</span>
-                  </div>
-                  <div className="flex items-end gap-1">
-                    <span className="text-2xl font-black font-mono text-primary leading-none">{metric.value}</span>
-                    <span className="text-xs font-medium text-muted mb-0.5">{metric.unit}</span>
-                  </div>
-                  <span className="text-[9px] text-muted">Aggiornato: {dailyMetrics[0].date}</span>
-                </div>
-              ))}
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-              <MiniChartCard title="Fasi del Sonno" subtitle="ultima notte" value={dailyMetrics[0].sleep_duration ? (dailyMetrics[0].sleep_duration / 60).toFixed(1) : '--'} unit="h" accentColor="#818cf8">
-                {dailyMetrics[0]?.sleep_timeline && dailyMetrics[0].sleep_timeline.length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart 
-                      data={[
-                        ...dailyMetrics[0].sleep_timeline.map(s => ({
-                          time: new Date(s.startGMT).getTime(),
-                          level: s.activityLevel === 0 ? 1 : s.activityLevel === 1 ? 2 : s.activityLevel === 2 ? 3 : 4
-                        })),
-                        // Aggiungi il punto finale per chiudere l'ultimo gradino
-                        { 
-                          time: new Date(dailyMetrics[0].sleep_timeline[dailyMetrics[0].sleep_timeline.length-1].endGMT).getTime(), 
-                          level: dailyMetrics[0].sleep_timeline[dailyMetrics[0].sleep_timeline.length-1].activityLevel === 0 ? 1 : dailyMetrics[0].sleep_timeline[dailyMetrics[0].sleep_timeline.length-1].activityLevel === 1 ? 2 : dailyMetrics[0].sleep_timeline[dailyMetrics[0].sleep_timeline.length-1].activityLevel === 2 ? 3 : 4 
-                        }
-                      ]} 
-                      margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
-                    >
-                      <CartesianGrid vertical={false} stroke={gridColor} strokeDasharray="3 3" />
-                      <XAxis 
-                        type="number" 
-                        dataKey="time" 
-                        domain={['dataMin', 'dataMax']} 
-                        tickFormatter={(v) => new Date(v).toLocaleTimeString('it-IT', {hour: '2-digit', minute: '2-digit'})} 
-                        tick={tickStyle} tickLine={false} axisLine={false} 
-                      />
-                      <YAxis 
-                        domain={[1, 4]} 
-                        ticks={[1, 2, 3, 4]} 
-                        tickFormatter={(v) => v === 1 ? 'Prof' : v === 2 ? 'Legg' : v === 3 ? 'REM' : 'Sveglio'}
-                        tick={tickStyle} tickLine={false} axisLine={false} width={45} 
-                      />
-                      <Tooltip 
-                        labelFormatter={(v) => new Date(v).toLocaleTimeString('it-IT', {hour: '2-digit', minute: '2-digit'})}
-                        formatter={(v: number) => [v === 1 ? 'Profondo' : v === 2 ? 'Leggero' : v === 3 ? 'REM' : 'Sveglio', 'Fase']}
-                        contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px', fontSize: '12px', color: '#f8fafc' }}
-                      />
-                      <Line type="stepAfter" dataKey="level" stroke="#3b82f6" strokeWidth={3} dot={false} activeDot={{ r: 5, fill: '#3b82f6' }} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={[...dailyMetrics].reverse().map(m => ({ date: new Date(m.date).toLocaleDateString('it-IT', { day: '2-digit', month: 'short' }), deep: (m.sleep_deep || 0)/60, light: (m.sleep_light || 0)/60, rem: (m.sleep_rem || 0)/60, awake: (m.sleep_awake || 0)/60 }))} margin={{ top: 4, right: 0, left: -20, bottom: 0 }}>
-                      <CartesianGrid vertical={false} stroke={gridColor} />
-                      <XAxis dataKey="date" tick={tickStyle} tickLine={false} axisLine={false} />
-                      <YAxis tick={tickStyle} tickLine={false} axisLine={false} width={28} />
-                      <Tooltip content={(props: any) => <MinimalTooltip {...props} unit="h" formatValue={(v: number) => v.toFixed(1)} />} />
-                      <Bar dataKey="deep" stackId="a" fill="#4338ca" name="Profondo" />
-                      <Bar dataKey="rem" stackId="a" fill="#8b5cf6" name="REM" />
-                      <Bar dataKey="light" stackId="a" fill="#818cf8" name="Leggero" />
-                      <Bar dataKey="awake" stackId="a" fill="#f87171" name="Sveglio" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                )}
-              </MiniChartCard>
-
-              <MiniChartCard title="Trend del Peso" subtitle="kg" value={dailyMetrics[0].weight_kg ? dailyMetrics[0].weight_kg.toFixed(1) : '--'} unit="kg" accentColor="#22d3ee">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={[...dailyMetrics].reverse().map(m => ({ date: new Date(m.date).toLocaleDateString('it-IT', { day: '2-digit', month: 'short' }), weight: m.weight_kg || null }))} margin={{ top: 4, right: 0, left: -20, bottom: 0 }}>
-                    <CartesianGrid vertical={false} stroke={gridColor} />
-                    <XAxis dataKey="date" tick={tickStyle} tickLine={false} axisLine={false} />
-                    <YAxis tick={tickStyle} tickLine={false} axisLine={false} width={32} domain={['auto', 'auto']} />
-                    <Tooltip content={(props: any) => <MinimalTooltip {...props} unit="kg" />} />
-                    <Line type="monotone" dataKey="weight" stroke="#22d3ee" strokeWidth={2} dot={{ r: 3, fill: '#22d3ee' }} connectNulls />
-                  </LineChart>
-                </ResponsiveContainer>
-              </MiniChartCard>
-
-              <MiniChartCard title="Stress Medio" subtitle="durante il sonno" value={dailyMetrics[0].stress_level?.toString() || '--'} unit="/100" accentColor="#fbbf24">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={[...dailyMetrics].reverse().map(m => ({ date: new Date(m.date).toLocaleDateString('it-IT', { day: '2-digit', month: 'short' }), stress: m.stress_level || null }))} margin={{ top: 4, right: 0, left: -20, bottom: 0 }}>
-                    <CartesianGrid vertical={false} stroke={gridColor} />
-                    <XAxis dataKey="date" tick={tickStyle} tickLine={false} axisLine={false} />
-                    <YAxis tick={tickStyle} tickLine={false} axisLine={false} width={32} domain={[0, 100]} />
-                    <Tooltip content={(props: any) => <MinimalTooltip {...props} unit=" pt" />} />
-                    <Line type="monotone" dataKey="stress" stroke="#fbbf24" strokeWidth={2} dot={{ r: 3, fill: '#fbbf24' }} connectNulls />
-                  </LineChart>
-                </ResponsiveContainer>
-              </MiniChartCard>
-
-              <MiniChartCard title="Respirazione" subtitle="atti al minuto (brpm)" value={dailyMetrics[0].respiration_avg?.toFixed(1) || '--'} unit="brpm" accentColor="#38bdf8">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={[...dailyMetrics].reverse().map(m => ({ date: new Date(m.date).toLocaleDateString('it-IT', { day: '2-digit', month: 'short' }), resp: m.respiration_avg || null }))} margin={{ top: 4, right: 0, left: -20, bottom: 0 }}>
-                    <CartesianGrid vertical={false} stroke={gridColor} />
-                    <XAxis dataKey="date" tick={tickStyle} tickLine={false} axisLine={false} />
-                    <YAxis tick={tickStyle} tickLine={false} axisLine={false} width={32} domain={['auto', 'auto']} />
-                    <Tooltip content={(props: any) => <MinimalTooltip {...props} unit=" brpm" />} />
-                    <Line type="monotone" dataKey="resp" stroke="#38bdf8" strokeWidth={2} dot={{ r: 3, fill: '#38bdf8' }} connectNulls />
-                  </LineChart>
-                </ResponsiveContainer>
-              </MiniChartCard>
-
-              <MiniChartCard title="Sleep Score" subtitle="qualità del sonno" value={dailyMetrics[0].sleep_score?.toString() || '--'} unit="/100" accentColor="#c084fc">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={[...dailyMetrics].reverse().map(m => ({ date: new Date(m.date).toLocaleDateString('it-IT', { day: '2-digit', month: 'short' }), score: m.sleep_score || null }))} margin={{ top: 4, right: 0, left: -20, bottom: 0 }}>
-                    <CartesianGrid vertical={false} stroke={gridColor} />
-                    <XAxis dataKey="date" tick={tickStyle} tickLine={false} axisLine={false} />
-                    <YAxis tick={tickStyle} tickLine={false} axisLine={false} width={32} domain={[0, 100]} />
-                    <Tooltip content={(props: any) => <MinimalTooltip {...props} unit=" pt" />} />
-                    <Line type="monotone" dataKey="score" stroke="#c084fc" strokeWidth={2} dot={{ r: 3, fill: '#c084fc' }} connectNulls />
-                  </LineChart>
-                </ResponsiveContainer>
-              </MiniChartCard>
-            </div>
-          </div>
-        ) : (
-          <div className="clean-panel p-10 text-center text-muted text-xs font-mono uppercase">
-            Nessuna metrica giornaliera trovata. Effettua la sincronizzazione.
-          </div>
-        )}
-      </div>
-
     </div>
   );
 }

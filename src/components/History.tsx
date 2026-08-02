@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { UploadCloud, FolderOpen, ChevronRight, ChevronLeft, Calendar, FileText, Activity } from 'lucide-react';
 import { Activity as ActivityType } from '../types.js';
@@ -50,6 +50,21 @@ export default function History({ activities, onUploadTcx, isUploading, uploadEr
   const ITEMS_PER_SLIDE = 3;
 
   const latestActivity = activities[0];
+  const [fullLatestActivity, setFullLatestActivity] = useState<ActivityType | null>(null);
+  useEffect(() => {
+    if (latestActivity) {
+      if (!latestActivity.trackpoints) {
+        fetch(`/api/activities/${latestActivity.id}`)
+          .then(res => res.json())
+          .then(data => setFullLatestActivity(data))
+          .catch(console.error);
+      } else {
+        setFullLatestActivity(latestActivity);
+      }
+    } else {
+      setFullLatestActivity(null);
+    }
+  }, [latestActivity]);
   const pastActivities = activities.slice(1);
   const totalSlides = Math.ceil(pastActivities.length / ITEMS_PER_SLIDE);
   const visibleActivities = pastActivities.slice(
@@ -129,7 +144,7 @@ export default function History({ activities, onUploadTcx, isUploading, uploadEr
       </div>
 
       {/* Hero: Latest Activity */}
-      {latestActivity ? (
+      {fullLatestActivity ? (
         <section>
           <div className="flex items-center justify-between mb-4">
             <span className="text-[10px] font-bold text-secondary uppercase tracking-widest flex items-center gap-2">
@@ -137,19 +152,19 @@ export default function History({ activities, onUploadTcx, isUploading, uploadEr
               Ultima Sessione
             </span>
             <button
-              onClick={() => onActivitySelect(latestActivity.id)}
+              onClick={() => onActivitySelect(fullLatestActivity.id)}
               className="text-[10px] font-bold text-accent-lime uppercase tracking-widest hover:opacity-70 transition-opacity flex items-center gap-1 cursor-pointer"
             >
               Dettagli <ChevronRight className="h-3.5 w-3.5" />
             </button>
           </div>
 
-          <div className="clean-panel overflow-hidden transition-shadow hover:shadow-md cursor-pointer" onClick={() => onActivitySelect(latestActivity.id)}>
-            {latestActivity.trackpoints && latestActivity.trackpoints.length > 0 && (
+          <div className="clean-panel overflow-hidden transition-shadow hover:shadow-md cursor-pointer" onClick={() => onActivitySelect(fullLatestActivity.id)}>
+            {fullLatestActivity.trackpoints && fullLatestActivity.trackpoints.length > 0 && (
               <div className="w-full surface-inset" style={{ height: 320 }}>
                 <ActivityCharts
-                  trackpoints={latestActivity.trackpoints}
-                  distanceKm={latestActivity.distanceKm}
+                  trackpoints={fullLatestActivity.trackpoints}
+                  distanceKm={fullLatestActivity.distanceKm}
                   mapHeight={320}
                   compact={true}
                 />
@@ -158,10 +173,10 @@ export default function History({ activities, onUploadTcx, isUploading, uploadEr
             <div className="px-6 pt-5 pb-5">
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 {[
-                  { label: 'Distanza', value: latestActivity.distanceKm.toFixed(1), unit: 'km', cls: 'text-accent-lime text-3xl sm:text-4xl' },
-                  { label: 'Passo', value: latestActivity.avgPace, unit: '/km', cls: 'text-primary text-2xl sm:text-3xl' },
-                  { label: 'Durata', value: `${latestActivity.durationMin}m`, unit: '', cls: 'text-primary text-2xl sm:text-3xl' },
-                  { label: 'BPM', value: latestActivity.avgHeartRate ? String(latestActivity.avgHeartRate) : '--', unit: '', cls: 'text-accent-rose text-2xl sm:text-3xl' },
+                  { label: 'Distanza', value: fullLatestActivity.distanceKm.toFixed(1), unit: 'km', cls: 'text-accent-lime text-3xl sm:text-4xl' },
+                  { label: 'Passo', value: fullLatestActivity.avgPace, unit: '/km', cls: 'text-primary text-2xl sm:text-3xl' },
+                  { label: 'Durata', value: `${fullLatestActivity.durationMin}m`, unit: '', cls: 'text-primary text-2xl sm:text-3xl' },
+                  { label: 'BPM', value: fullLatestActivity.avgHeartRate ? String(fullLatestActivity.avgHeartRate) : '--', unit: '', cls: 'text-accent-rose text-2xl sm:text-3xl' },
                 ].map(m => (
                   <div key={m.label}>
                     <span className="text-[9px] text-muted uppercase tracking-widest font-sans block mb-1">{m.label}</span>

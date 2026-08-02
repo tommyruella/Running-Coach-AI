@@ -104,6 +104,7 @@ export interface DailyMetrics {
   hrv_avg?: number;
   body_battery_change?: number;
   sleep_timeline?: { startGMT: string; endGMT: string; activityLevel: number }[];
+  hr_timeline?: { time: string; hr: number }[];
   weight_kg?: number;
   calories_total?: number;
   calories_active?: number;

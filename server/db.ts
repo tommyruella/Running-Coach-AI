@@ -191,16 +191,32 @@ export async function getActivities(): Promise<Activity[]> {
   try {
     const { data, error } = await supabaseAdmin
       .from('activities')
-      .select('*')
+      .select('id, sport, name, date, distanceKm, durationMin, calories, avgHeartRate, maxHeartRate, avgCadence, maxCadence, avgSpeedKmh, maxSpeedKmh, avgPace, deviceBrand, deviceModel, laps, notes, plannedWorkoutId')
       .order('date', { ascending: false });
       
     if (error) throw error;
     
-    // Ensure laps and trackpoints are properly formatted if they come back as JSON
     return (data || []) as Activity[];
   } catch (error) {
     console.error('Error fetching activities from Supabase:', error);
     return [];
+  }
+}
+
+export async function getActivity(id: string): Promise<Activity | null> {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('activities')
+      .select('*')
+      .eq('id', id)
+      .single();
+      
+    if (error) throw error;
+    
+    return data as Activity;
+  } catch (error) {
+    console.error(`Error fetching activity ${id} from Supabase:`, error);
+    return null;
   }
 }
 
@@ -394,11 +410,19 @@ export async function getDailyMetrics(): Promise<DailyMetrics[]> {
 
 export async function saveDailyMetrics(metrics: DailyMetrics[]): Promise<void> {
   try {
+    // Proviamo prima a salvare incluse le metriche hr_timeline
     const { error } = await supabaseAdmin
       .from('daily_metrics')
       .upsert(metrics, { onConflict: 'date' });
 
-    if (error) throw error;
+    if (error) {
+      console.warn('Salvataggio completo fallito (probabile colonna hr_timeline mancante), eseguo fallback senza hr_timeline:', error.message);
+      const safeMetrics = metrics.map(({ hr_timeline, ...rest }) => rest);
+      const { error: fallbackError } = await supabaseAdmin
+        .from('daily_metrics')
+        .upsert(safeMetrics, { onConflict: 'date' });
+      if (fallbackError) throw fallbackError;
+    }
   } catch (error) {
     console.error('Error saving daily metrics to Supabase:', error);
   }

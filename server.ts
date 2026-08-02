@@ -138,6 +138,18 @@ app.get('/api/activities', async (req, res) => {
   }
 });
 
+// Get Single Activity (with trackpoints)
+app.get('/api/activities/:id', async (req, res) => {
+  try {
+    const { getActivity } = await import('./server/db.js');
+    const activity = await getActivity(req.params.id);
+    if (!activity) return res.status(404).json({ error: 'Activity not found' });
+    res.json(activity);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Admin: Delete Activity
 app.delete('/api/activities/:id', async (req, res) => {
   try {

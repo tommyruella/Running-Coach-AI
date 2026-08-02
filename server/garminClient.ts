@@ -14,29 +14,26 @@ export async function syncGarminMetrics(email: string, password: string, dateObj
   // Let's fetch for the current date in YYYY-MM-DD
   const dateStr = dateObj.toLocaleDateString('en-CA'); // format YYYY-MM-DD
 
-  console.log(`Fetching Garmin metrics for ${dateStr}...`);
+  console.log(`Fetching Garmin metrics for ${dateStr} in parallel...`);
 
-  let sleepData, weightData, stepsData;
+  const [sleepRes, hrRes, stepsRes, weightRes] = await Promise.allSettled([
+    gcClient.getSleepData(dateObj),
+    gcClient.getHeartRate(dateObj),
+    gcClient.getSteps(dateObj),
+    gcClient.getDailyWeightData(dateObj)
+  ]);
 
-  try {
-    sleepData = await gcClient.getSleepData(dateObj);
-  } catch (err) {
-    console.error('Error fetching sleep data:', err);
-  }
+  const sleepData = sleepRes.status === 'fulfilled' ? sleepRes.value : null;
+  if (sleepRes.status === 'rejected') console.error('Error fetching sleep data:', sleepRes.reason);
 
-  // HeartRate is skipped because restingHeartRate is extracted from getSleepData
+  const hrData = hrRes.status === 'fulfilled' ? hrRes.value : null;
+  if (hrRes.status === 'rejected') console.error('Error fetching HR data:', hrRes.reason);
 
-  try {
-    stepsData = await gcClient.getSteps(dateObj);
-  } catch (err) {
-    console.error('Error fetching steps:', err);
-  }
+  const stepsData = stepsRes.status === 'fulfilled' ? stepsRes.value : null;
+  if (stepsRes.status === 'rejected') console.error('Error fetching steps data:', stepsRes.reason);
 
-  try {
-    weightData = await gcClient.getDailyWeightData(dateObj);
-  } catch (err) {
-    console.error('Error fetching body composition:', err);
-  }
+  const weightData = weightRes.status === 'fulfilled' ? weightRes.value : null;
+  if (weightRes.status === 'rejected') console.error('Error fetching weight data:', weightRes.reason);
 
   // Parse data
   const metrics: DailyMetrics = {
@@ -71,6 +68,24 @@ export async function syncGarminMetrics(email: string, password: string, dateObj
 
   if (stepsData) {
     metrics.steps = stepsData;
+  }
+
+  if (hrData && hrData.heartRateValues) {
+    metrics.hr_timeline = hrData.heartRateValues
+      .map((entry: any) => {
+        // Handle Garmin array format [timestamp, hr] or object {timestamp, heartrate}
+        let ts = entry[0] || entry.timestamp;
+        let hr = entry[1] || entry.heartrate;
+        if (Array.isArray(entry)) {
+          ts = entry[0];
+          hr = entry[1];
+        }
+        return {
+          time: new Date(ts).toISOString(),
+          hr: hr
+        };
+      })
+      .filter((m: any) => m.hr != null);
   }
 
   metrics.calories_total = 0; 

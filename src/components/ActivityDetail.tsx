@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import {
   ArrowLeft, Watch, Clock, Thermometer, Droplets,
   CloudSun, Flame, Activity as ActivityIcon, ChevronDown, ChevronUp
@@ -12,8 +12,29 @@ interface ActivityDetailProps {
   onBack: () => void;
 }
 
-export default function ActivityDetail({ activity, onBack }: ActivityDetailProps) {
+export default function ActivityDetail({ activity: initialActivity, onBack }: ActivityDetailProps) {
   const [lapsOpen, setLapsOpen] = useState(false);
+  const [activity, setActivity] = useState<ActivityType>(initialActivity);
+  const [isLoading, setIsLoading] = useState(!initialActivity.trackpoints);
+
+  React.useEffect(() => {
+    if (!initialActivity.trackpoints) {
+      setIsLoading(true);
+      fetch(`/api/activities/${initialActivity.id}`)
+        .then(res => res.json())
+        .then(data => {
+          setActivity(data);
+          setIsLoading(false);
+        })
+        .catch(err => {
+          console.error(err);
+          setIsLoading(false);
+        });
+    } else {
+      setActivity(initialActivity);
+      setIsLoading(false);
+    }
+  }, [initialActivity]);
 
   const formatDuration = (totalSeconds: number) => {
     const h = Math.floor(totalSeconds / 3600);
@@ -83,7 +104,6 @@ export default function ActivityDetail({ activity, onBack }: ActivityDetailProps
       className="pb-16"
       id="activity-detail-page"
     >
-      {/* Top Nav */}
       <div className="flex items-start gap-4 mb-8">
         <button
           onClick={onBack}
@@ -91,146 +111,155 @@ export default function ActivityDetail({ activity, onBack }: ActivityDetailProps
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <div className="min-w-0">
-          <h1 className="text-3xl sm:text-4xl font-display font-black text-primary tracking-tight truncate leading-tight">
-            {activity.name}
-          </h1>
-          <p className="text-xs text-secondary flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 font-medium tracking-wide">
-            <span>{dateStr}</span>
-            {departureTime && (
-              <span className="flex items-center gap-1">
-                <Clock className="h-3 w-3" />
-                {departureTime}
-              </span>
-            )}
-            {activity.deviceModel && (
-              <span className="flex items-center gap-1 text-primary">
-                <Watch className="h-3 w-3" />
-                {activity.deviceModel}
-              </span>
-            )}
-          </p>
-        </div>
+        <div className="flex-1" />
+        <h2 className="text-lg font-bold">Dettagli</h2>
       </div>
 
-      {/* Primary Metrics Strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-        {metrics.map(m => (
-          <div key={m.label} className="clean-panel px-5 py-4">
-            <span className="text-[10px] text-muted uppercase tracking-widest font-sans block mb-2 font-medium">{m.label}</span>
-            <div className="flex items-end gap-1">
-              <span className={`text-2xl sm:text-3xl font-display font-bold leading-none tracking-tighter ${m.accent || 'text-primary'}`}>
-                {m.value}
-              </span>
-              {m.unit && <span className="text-[10px] font-bold uppercase text-muted mb-0.5">{m.unit}</span>}
-            </div>
+      {isLoading ? (
+        <div className="flex flex-col items-center justify-center py-20 text-secondary">
+          <ActivityIcon className="w-10 h-10 mb-4 animate-pulse text-accent" />
+          <p className="text-sm font-medium">Caricamento dettagli e mappa...</p>
+        </div>
+      ) : (
+        <>
+          <div className="min-w-0 mb-6">
+            <h1 className="text-3xl sm:text-4xl font-display font-black text-primary tracking-tight truncate leading-tight">
+              {activity.name}
+            </h1>
+            <p className="text-xs text-secondary flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 font-medium tracking-wide">
+              <span>{dateStr}</span>
+              {departureTime && (
+                <span className="flex items-center gap-1">
+                  <Clock className="h-3 w-3" />
+                  {departureTime}
+                </span>
+              )}
+              {activity.deviceModel && (
+                <span className="flex items-center gap-1 text-primary">
+                  <Watch className="h-3 w-3" />
+                  {activity.deviceModel}
+                </span>
+              )}
+            </p>
           </div>
-        ))}
-      </div>
 
-      {/* Map */}
-      {hasGps && (
-        <div className="w-full rounded-[16px] overflow-hidden mb-6 border border-subtle shadow-sm" style={{ height: 400 }}>
-          <ActivityCharts
-            trackpoints={activity.trackpoints!}
-            distanceKm={activity.distanceKm}
-            mapHeight={400}
-            compact={true}
-          />
-        </div>
-      )}
-
-      {/* Charts Panel */}
-      {activity.trackpoints && activity.trackpoints.length > 0 && (
-        <div className="mb-6">
-          <ActivityCharts
-            trackpoints={activity.trackpoints}
-            distanceKm={activity.distanceKm}
-            mapHeight={0}
-            compact={false}
-          />
-        </div>
-      )}
-
-      {/* Secondary Metrics */}
-      {secondaryMetrics.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 mb-6">
-          {secondaryMetrics.map(m => (
-            <div key={m.label} className="clean-panel px-4 py-4">
-              <span className="text-[10px] text-muted uppercase tracking-widest font-sans flex items-center gap-1.5 mb-2 font-medium">
-                {m.icon} {m.label}
-              </span>
-              <div className="flex items-end gap-1">
-                <span className={`text-xl font-display font-bold leading-none tracking-tight ${m.accent || 'text-primary'}`}>{m.value}</span>
-                {m.unit && <span className="text-[10px] font-bold uppercase text-muted mb-0.5">{m.unit}</span>}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+            {metrics.map(m => (
+              <div key={m.label} className="clean-panel px-5 py-4">
+                <span className="text-[10px] text-muted uppercase tracking-widest font-sans block mb-2 font-medium">{m.label}</span>
+                <div className="flex items-end gap-1">
+                  <span className={`text-2xl sm:text-3xl font-display font-bold leading-none tracking-tighter ${m.accent || 'text-primary'}`}>
+                    {m.value}
+                  </span>
+                  {m.unit && <span className="text-[10px] font-bold uppercase text-muted mb-0.5">{m.unit}</span>}
+                </div>
               </div>
+            ))}
+          </div>
+
+          {hasGps && (
+            <div className="w-full rounded-[16px] overflow-hidden mb-6 border border-subtle shadow-sm" style={{ height: 400 }}>
+              <ActivityCharts
+                trackpoints={activity.trackpoints!}
+                distanceKm={activity.distanceKm}
+                mapHeight={400}
+                compact={true}
+              />
             </div>
-          ))}
-        </div>
-      )}
-
-      {/* Notes */}
-      {!isDefaultNote && (
-        <div className="clean-panel px-5 py-4 mb-6">
-          <span className="text-[10px] text-muted uppercase tracking-widest font-sans block mb-2 font-medium">Note Sessione</span>
-          <p className="text-sm text-secondary leading-relaxed italic">{cleanNotes}</p>
-        </div>
-      )}
-
-      {/* Laps */}
-      {activity.laps && activity.laps.length > 0 && (
-        <div className="clean-panel overflow-hidden">
-          <button
-            onClick={() => setLapsOpen(o => !o)}
-            className="w-full flex items-center justify-between px-6 py-4 hover:bg-surface-inset transition-colors cursor-pointer"
-          >
-            <span className="text-[10px] font-bold text-muted uppercase tracking-widest flex items-center gap-2">
-              Giri
-              <span className="text-accent-lime font-mono">× {activity.laps.length}</span>
-            </span>
-            {lapsOpen
-              ? <ChevronUp className="h-4 w-4 text-muted" />
-              : <ChevronDown className="h-4 w-4 text-muted" />
-            }
-          </button>
-
-          {lapsOpen && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              transition={{ duration: 0.22 }}
-              className="overflow-x-auto border-t border-subtle"
-            >
-              <table className="w-full text-left text-sm whitespace-nowrap">
-                <thead>
-                  <tr className="text-[9px] text-muted uppercase tracking-widest bg-surface-inset">
-                    {['#', 'Dist', 'Tempo', 'Passo', 'BPM', 'PPM'].map(h => (
-                      <th key={h} className="py-3.5 px-5 font-bold">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="font-mono text-secondary">
-                  {activity.laps.map(lap => {
-                    const ps = lap.distanceKm > 0 ? (lap.durationSec / lap.distanceKm) : 0;
-                    const lapPace = ps > 0
-                      ? `${Math.floor(ps / 60)}:${Math.round(ps % 60).toString().padStart(2, '0')}`
-                      : '--:--';
-                    return (
-                      <tr key={lap.lapIndex} className="border-t border-subtle hover:bg-surface-inset transition-colors">
-                        <td className="py-3.5 px-5 text-muted font-bold">{lap.lapIndex}</td>
-                        <td className="py-3.5 px-5 font-bold text-primary">{lap.distanceKm.toFixed(2)} km</td>
-                        <td className="py-3.5 px-5">{formatDuration(lap.durationSec)}</td>
-                        <td className="py-3.5 px-5 text-accent-lime font-bold">{lapPace}</td>
-                        <td className="py-3.5 px-5 text-accent-rose font-bold">{lap.avgHeartRate || '--'}</td>
-                        <td className="py-3.5 px-5 text-accent-cyan">{lap.avgCadence || '--'}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </motion.div>
           )}
-        </div>
+
+          {activity.trackpoints && activity.trackpoints.length > 0 && (
+            <div className="mb-6">
+              <ActivityCharts
+                trackpoints={activity.trackpoints}
+                distanceKm={activity.distanceKm}
+                mapHeight={0}
+                compact={false}
+              />
+            </div>
+          )}
+
+          {secondaryMetrics.length > 0 && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 mb-6">
+              {secondaryMetrics.map(m => (
+                <div key={m.label} className="clean-panel px-4 py-4">
+                  <span className="text-[10px] text-muted uppercase tracking-widest font-sans flex items-center gap-1.5 mb-2 font-medium">
+                    {m.icon} {m.label}
+                  </span>
+                  <div className="flex items-end gap-1">
+                    <span className={`text-xl font-display font-bold leading-none tracking-tight ${m.accent || 'text-primary'}`}>{m.value}</span>
+                    {m.unit && <span className="text-[10px] font-bold uppercase text-muted mb-0.5">{m.unit}</span>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {!isDefaultNote && (
+            <div className="clean-panel px-5 py-4 mb-6">
+              <span className="text-[10px] text-muted uppercase tracking-widest font-sans block mb-2 font-medium">Note Sessione</span>
+              <p className="text-sm text-secondary leading-relaxed italic">{cleanNotes}</p>
+            </div>
+          )}
+
+          {activity.laps && activity.laps.length > 0 && (
+            <div className="clean-panel overflow-hidden">
+              <button
+                onClick={() => setLapsOpen(o => !o)}
+                className="w-full flex items-center justify-between px-6 py-4 hover:bg-surface-inset transition-colors cursor-pointer"
+              >
+                <span className="text-[10px] font-bold text-muted uppercase tracking-widest flex items-center gap-2">
+                  Giri
+                  <span className="text-accent-lime font-mono">× {activity.laps.length}</span>
+                </span>
+                {lapsOpen
+                  ? <ChevronUp className="h-4 w-4 text-muted" />
+                  : <ChevronDown className="h-4 w-4 text-muted" />
+                }
+              </button>
+
+              <AnimatePresence>
+                {lapsOpen && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.22 }}
+                    className="overflow-x-auto border-t border-subtle"
+                  >
+                    <table className="w-full text-left text-sm whitespace-nowrap">
+                      <thead>
+                        <tr className="text-[9px] text-muted uppercase tracking-widest bg-surface-inset">
+                          {['#', 'Dist', 'Tempo', 'Passo', 'BPM', 'PPM'].map(h => (
+                            <th key={h} className="py-3.5 px-5 font-bold">{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="font-mono text-secondary">
+                        {activity.laps.map(lap => {
+                          const ps = lap.distanceKm > 0 ? (lap.durationSec / lap.distanceKm) : 0;
+                          const lapPace = ps > 0
+                            ? `${Math.floor(ps / 60)}:${Math.round(ps % 60).toString().padStart(2, '0')}`
+                            : '--:--';
+                          return (
+                            <tr key={lap.lapIndex} className="border-t border-subtle hover:bg-surface-inset transition-colors">
+                              <td className="py-3.5 px-5 text-muted font-bold">{lap.lapIndex}</td>
+                              <td className="py-3.5 px-5 font-bold text-primary">{lap.distanceKm.toFixed(2)} km</td>
+                              <td className="py-3.5 px-5">{formatDuration(lap.durationSec)}</td>
+                              <td className="py-3.5 px-5 text-accent-lime font-bold">{lapPace}</td>
+                              <td className="py-3.5 px-5 text-accent-rose font-bold">{lap.avgHeartRate || '--'}</td>
+                              <td className="py-3.5 px-5 text-accent-cyan">{lap.avgCadence || '--'}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          )}
+        </>
       )}
     </motion.div>
   );
