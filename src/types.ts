@@ -108,8 +108,13 @@ export interface DailyMetrics {
   weight_kg?: number;
   calories_total?: number;
   calories_active?: number;
+  distance_m?: number;
+  ran_today?: boolean;
   steps?: number;
   stress_level?: number;
   respiration_avg?: number;
   spo2_avg?: number;
+  weather_temp?: number;
+  weather_humidity?: number;
+  weather_desc?: string;
 }

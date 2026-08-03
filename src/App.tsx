@@ -207,19 +207,30 @@ export default function App() {
             ) : activeTab === 'health' ? (
               <Health
                 dailyMetrics={dailyMetrics}
-                onSyncGarmin={async () => {
+                activities={activities}
+                onSelectActivity={(id) => {
+                  setSelectedActivityId(id);
+                  setActiveTab('activity_detail');
+                }}
+                onSyncGarmin={async (targetDate?: any) => {
                   try {
-                    const res = await fetch('/api/garmin/sync', { method: 'POST' });
+                    const dateStr = typeof targetDate === 'string' ? targetDate : undefined;
+                    const res = await fetch('/api/garmin/sync', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ date: dateStr })
+                    });
+                    const data = await res.json().catch(() => ({}));
                     if (res.ok) {
                       await fetchData();
                       alert('Sincronizzazione Garmin completata!');
                     } else {
-                      const data = await res.json();
-                      alert(`Errore durante la sincronizzazione: ${data.error}`);
+                      const errorMsg = data.error || `Errore del server (${res.status})`;
+                      alert(`Sincronizzazione Garmin: ${errorMsg}`);
                     }
-                  } catch(e) {
+                  } catch(e: any) {
                     console.error('Error syncing garmin', e);
-                    alert('Impossibile contattare il server.');
+                    alert(`Impossibile completare la richiesta: ${e?.message || e}`);
                   }
                 }}
               />

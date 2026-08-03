@@ -756,13 +756,20 @@ app.post('/api/garmin/sync', async (req, res) => {
       return res.status(400).json({ error: 'Credenziali Garmin non configurate nelle variabili di ambiente (GARMIN_EMAIL e GARMIN_PASSWORD).' });
     }
 
-    const metrics = await syncGarminMetrics(email, password);
+    const dateInput = req.body?.date;
+    const targetDate = dateInput
+      ? new Date(typeof dateInput === 'string' && dateInput.length === 10 ? `${dateInput}T12:00:00` : dateInput)
+      : new Date();
+    const metrics = await syncGarminMetrics(email, password, targetDate);
     await saveDailyMetrics([metrics]);
 
     res.json({ success: true, metrics });
   } catch (error: any) {
     console.error('Errore durante la sincronizzazione Garmin:', error);
-    const msg = error?.message || 'Impossibile sincronizzare i dati Garmin.';
+    let msg = error?.message || 'Impossibile sincronizzare i dati Garmin.';
+    if (msg.includes('429') || msg.includes('rate_limited') || msg.includes('Rate Limit') || msg.includes('1015')) {
+      msg = 'Garmin Connect sta temporaneamente limitando gli accessi frequenti (Anti-Bot Cloudflare). Le credenziali sono salvate e la sessione è pronta: riprova tra qualche minuto!';
+    }
     res.status(500).json({ error: msg });
   }
 });
@@ -777,8 +784,44 @@ app.get('/api/metrics/daily', async (req, res) => {
 });
 
 // Express server & Vite Setup
+async function runGarminSyncForDate(date: Date) {
+  try {
+    const email = process.env.GARMIN_EMAIL;
+    const password = process.env.GARMIN_PASSWORD;
+    if (!email || !password) return;
+    const metrics = await syncGarminMetrics(email, password, date);
+    await saveDailyMetrics([metrics]);
+    console.log(`Automatic sync complete for ${date.toISOString().split('T')[0]}`);
+  } catch(e) {
+    console.error("Automatic sync failed:", e);
+  }
+}
+
+function scheduleDailySync() {
+  const now = new Date();
+  const nextMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0);
+  const msUntilMidnight = nextMidnight.getTime() - now.getTime();
+
+  console.log(`Scheduled next Garmin sync at midnight (in ${Math.round(msUntilMidnight / 1000 / 60)} minutes).`);
+
+  setTimeout(async () => {
+    console.log("Running scheduled daily Garmin sync...");
+    // Fetch yesterday's data (since it's 00:00, yesterday is now a complete day)
+    await runGarminSyncForDate(new Date(Date.now() - 86400000));
+    // Fetch today's data to start fresh
+    await runGarminSyncForDate(new Date());
+    
+    // Schedule for the next midnight
+    scheduleDailySync();
+  }, msUntilMidnight);
+}
+
 async function startServer() {
   await initializeDb(); // Now safe, does nothing locally or on Vercel
+  
+  // Start the daily cron job
+  scheduleDailySync();
+  
   if (process.env.NODE_ENV !== 'production') {
     const viteModule = 'vite';
     const { createServer: createViteServer } = await import(/* @vite-ignore */ viteModule);
