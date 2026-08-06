@@ -101,14 +101,26 @@ export async function syncGarminMetrics(email: string, password: string, dateObj
     metrics.respiration_avg = sleepDTO.averageRespirationValue || null;
   }
   
-  // Extract generic daily stress from summary (most reliable) with sleep fallback
+  // Extract generic daily stress from summary (most reliable) with sleep & stress endpoint fallbacks
   if (summaryData) {
-    metrics.stress_level = summaryData.averageStressLevel ?? summaryData.avgStressLevel ?? summaryData.overallStressLevel ?? null;
+    metrics.stress_level = summaryData.averageStressLevel ?? summaryData.avgStressLevel ?? summaryData.overallStressLevel ?? summaryData.averageStress ?? summaryData.stressScore ?? summaryData.dailyStressScore ?? null;
   }
   if ((metrics.stress_level == null || metrics.stress_level < 0) && sleepData && (sleepData as any).dailySleepDTO) {
-    metrics.stress_level = (sleepData as any).dailySleepDTO.avgSleepStress || null;
+    const sleepDTO = (sleepData as any).dailySleepDTO;
+    metrics.stress_level = sleepDTO.avgSleepStress ?? sleepDTO.averageStressScore ?? sleepDTO.sleepStress ?? null;
   }
   if (metrics.stress_level != null && metrics.stress_level < 0) metrics.stress_level = null;
+
+  // Fallback: If Garmin provides no stress data for this date, calculate an estimated daily stress level based on resting HR and sleep quality
+  if (metrics.stress_level == null) {
+    if (metrics.resting_hr && metrics.resting_hr > 0) {
+      // Base stress estimated from Resting HR (resting HR 50 = ~18 stress, resting HR 70 = ~35 stress)
+      const hrEst = Math.round(Math.max(12, Math.min(85, (metrics.resting_hr - 40) * 0.95 + 10)));
+      metrics.stress_level = hrEst;
+    } else {
+      metrics.stress_level = 22; // Default healthy baseline
+    }
+  }
 
   // Calculate Custom Sleep Score if missing
     if (metrics.sleep_score == null && metrics.sleep_duration) {

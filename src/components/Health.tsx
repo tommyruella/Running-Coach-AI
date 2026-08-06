@@ -1,5 +1,6 @@
-import React, { useMemo, useState, useEffect } from 'react';
-import { Heart, Zap, TrendingDown, TrendingUp, Moon, Activity, Flame, ChevronLeft, ChevronRight, ExternalLink, Sun, MapPin, Settings, X } from 'lucide-react';
+import { generateHealthSectionAnalysis } from '../utils/healthAiEngine';
+import React, { useMemo, useState, useEffect, useTransition, useDeferredValue, useCallback } from 'react';
+import { Heart, Zap, TrendingDown, TrendingUp, Moon, Activity, Flame, ChevronLeft, ChevronRight, ExternalLink, Sun, MapPin, Settings, X, Loader2 } from 'lucide-react';
 import {
   ResponsiveContainer,
   BarChart, Bar,
@@ -7,7 +8,7 @@ import {
   XAxis, YAxis,
   Tooltip,
   CartesianGrid,
-  LineChart, Line,
+  LineChart, Line, AreaChart, Area,
   ComposedChart, Scatter, Legend
 } from 'recharts';
 import { MinimalTooltip, MiniChartCard } from './Dashboard';
@@ -16,7 +17,7 @@ interface HealthProps {
   dailyMetrics: any[];
   activities?: any[];
   onSelectActivity?: (activityId: string) => void;
-  onSyncGarmin?: (dateStr?: string) => void;
+  onSyncGarmin?: (dateStr?: string) => void | Promise<void>;
 }
 
 interface DetailedWeatherData {
@@ -135,6 +136,7 @@ const calculateSleepScore = (metrics: any) => {
 export default function Health({ dailyMetrics = [], activities = [], onSelectActivity, onSyncGarmin }: HealthProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [correlationType, setCorrelationType] = useState<'rhr' | 'stress'>('rhr');
+  const [activeChartTab, setActiveChartTab] = useState<'correlation' | 'intraday' | 'sleep' | 'steps'>('correlation');
   const [weatherData, setWeatherData] = useState<DetailedWeatherData | null>(null);
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
   const [customLocations, setCustomLocations] = useState<Record<string, { lat: number; lon: number; name: string }>>(() => {
@@ -151,6 +153,73 @@ export default function Health({ dailyMetrics = [], activities = [], onSelectAct
 
   const currentMetrics = dailyMetrics[selectedIndex] || null;
   const [syncTargetDate, setSyncTargetDate] = useState<string>(() => currentMetrics?.date?.split('T')[0] || new Date().toISOString().split('T')[0]);
+  const [visibleDaysCount, setVisibleDaysCount] = useState(14);
+  const stripContainerRef = React.useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!stripContainerRef.current) return;
+    const container = stripContainerRef.current;
+    const selectedEl = container.querySelector('[data-selected="true"]') as HTMLElement;
+    if (selectedEl) {
+      const containerWidth = container.clientWidth;
+      const elOffsetLeft = selectedEl.offsetLeft;
+      const elWidth = selectedEl.clientWidth;
+      const targetScrollLeft = elOffsetLeft - (containerWidth / 2) + (elWidth / 2);
+      container.scrollTo({
+        left: targetScrollLeft,
+        behavior: 'smooth'
+      });
+    }
+  }, [selectedIndex]);
+
+  const handleStripScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const target = e.currentTarget;
+    if (target.scrollLeft < 150 && !isLoadingOlderDays && visibleDaysCount < dailyMetrics.length) {
+      setVisibleDaysCount(prev => Math.min(dailyMetrics.length, prev + 7));
+    }
+  };
+  const [isLoadingOlderDays, setIsLoadingOlderDays] = useState(false);
+
+  const handleLoadOlderDays = async (direction: 'older' | 'newer') => {
+    if (direction === 'newer') {
+      if (selectedIndex > 0) {
+        setSelectedIndex(prev => prev - 1);
+      }
+      return;
+    }
+
+    // direction == 'older'
+    if (selectedIndex < visibleDaysCount - 1 && selectedIndex < dailyMetrics.length - 1) {
+      setSelectedIndex(prev => prev + 1);
+    } else {
+      setIsLoadingOlderDays(true);
+      try {
+        await new Promise(res => setTimeout(res, 400));
+        const nextCount = Math.min(dailyMetrics.length, visibleDaysCount + 7);
+        if (nextCount > visibleDaysCount) {
+          setVisibleDaysCount(nextCount);
+          setSelectedIndex(prev => prev + 1);
+        } else if (onSyncGarmin && dailyMetrics.length > 0) {
+          const oldestDate = new Date(dailyMetrics[dailyMetrics.length - 1].date);
+          oldestDate.setDate(oldestDate.getDate() - 1);
+          const targetStr = oldestDate.toISOString().split('T')[0];
+          await onSyncGarmin(targetStr);
+          setVisibleDaysCount(prev => prev + 1);
+          setSelectedIndex(prev => prev + 1);
+        }
+      } finally {
+        setIsLoadingOlderDays(false);
+      }
+    }
+  };
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  const navigateDay = useCallback((direction: 'prev' | 'next') => {
+    setSelectedIndex(i => direction === 'prev' 
+      ? Math.min(dailyMetrics.length - 1, i + 1) 
+      : Math.max(0, i - 1)
+    );
+  }, [dailyMetrics.length]);
 
   useEffect(() => {
     if (currentMetrics?.date) {
@@ -158,9 +227,17 @@ export default function Health({ dailyMetrics = [], activities = [], onSelectAct
     }
   }, [currentMetrics?.date]);
 
+  const weatherCacheRef = React.useRef<Record<string, DetailedWeatherData>>({});
+
   useEffect(() => {
     if (!currentMetrics?.date) return;
     const datePart = currentMetrics.date.split('T')[0];
+
+    // Check cache first
+    if (weatherCacheRef.current[datePart]) {
+      setWeatherData(weatherCacheRef.current[datePart]);
+      return;
+    }
 
     const fetchMeteo = async (lat: number, lon: number, cityName: string) => {
       try {
@@ -195,14 +272,16 @@ export default function Health({ dailyMetrics = [], activities = [], onSelectAct
           else if (weatherCode >= 51 && weatherCode <= 67) desc = "Pioggia";
           else if (weatherCode >= 80) desc = "Rovesci";
           
-          setWeatherData({
+          const result: DetailedWeatherData = {
             tempMin: Math.round(tempMin * 10) / 10,
             tempMax: Math.round(tempMax * 10) / 10,
             humNight,
             humDay,
             desc,
             cityName
-          });
+          };
+          weatherCacheRef.current[datePart] = result;
+          setWeatherData(result);
         }
       } catch (e) {
         console.error("Error fetching weather for health tab:", e);
@@ -410,328 +489,297 @@ export default function Health({ dailyMetrics = [], activities = [], onSelectAct
     setInputLon('');
   };
 
-  return (
-    <div className="space-y-6" id="health-tab">
-      {/* HEADER */}
-      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
-        <div>
-          <h2 className="text-3xl font-bold text-primary tracking-tight flex items-center gap-3 select-none">
-            <Heart className="h-8 w-8 text-accent-rose" />
-            Salute
-          </h2>
+
+  // Supabase cached analysis state (avoids re-calculating or spending AI credits)
+  const [dbCachedAnalyses, setDbCachedAnalyses] = useState<Record<string, any>>({});
+
+  useEffect(() => {
+    if (!currentMetrics?.date) return;
+    const targetDate = currentMetrics.date;
+
+    // Check if already fetched in local state memory
+    if (dbCachedAnalyses[targetDate]) return;
+
+    let isMounted = true;
+    fetch(`/api/health-analysis?date=${targetDate}`)
+      .then(res => res.json())
+      .then(data => {
+        if (!isMounted) return;
+        if (data && data.analysis) {
+          // Found in Supabase! Hydrate state (0 AI credits spent)
+          const record = data.analysis;
+          const hydrated = {
+            date: targetDate,
+            overall: { trendStatus: record.overall_trend, insightText: record.overall_insight, marginOfImprovement: record.overall_insight },
+            sleep: { trendStatus: record.sleep_trend, insightText: record.sleep_insight, marginOfImprovement: record.sleep_insight },
+            cardio: { trendStatus: record.cardio_trend, insightText: record.cardio_insight, marginOfImprovement: record.cardio_insight },
+            activity: { trendStatus: record.activity_trend, insightText: record.activity_insight, marginOfImprovement: record.activity_insight },
+            body: { trendStatus: record.body_trend, insightText: record.body_insight, marginOfImprovement: record.body_insight }
+          };
+          setDbCachedAnalyses(prev => ({ ...prev, [targetDate]: hydrated }));
+        } else {
+          // Not found in Supabase: generate and persist to Supabase
+          const generated = generateHealthSectionAnalysis(currentMetrics, dailyMetrics);
+          setDbCachedAnalyses(prev => ({ ...prev, [targetDate]: generated }));
+
+          // Save to Supabase
+          const dbRecord = {
+            date: targetDate,
+            overall_trend: generated.overall.trendStatus,
+            overall_insight: generated.overall.insightText,
+            sleep_trend: generated.sleep.trendStatus,
+            sleep_insight: generated.sleep.insightText,
+            cardio_trend: generated.cardio.trendStatus,
+            cardio_insight: generated.cardio.insightText,
+            activity_trend: generated.activity.trendStatus,
+            activity_insight: generated.activity.insightText,
+            body_trend: generated.body.trendStatus,
+            body_insight: generated.body.insightText
+          };
+
+          fetch('/api/health-analysis', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ analysis: dbRecord })
+          }).catch(err => console.error('Failed to cache analysis in Supabase:', err));
+        }
+      })
+      .catch(err => console.error('Error querying Supabase health analysis:', err));
+
+    return () => { isMounted = false; };
+  }, [currentMetrics?.date, dailyMetrics]);
+
+  // Compute section-by-section sports-medical analysis (prefer Supabase cached result)
+  const sectionAnalyses = useMemo(() => {
+    if (!currentMetrics) return null;
+    if (dbCachedAnalyses[currentMetrics.date]) {
+      return dbCachedAnalyses[currentMetrics.date];
+    }
+    return generateHealthSectionAnalysis(currentMetrics, dailyMetrics);
+  }, [currentMetrics, dailyMetrics, dbCachedAnalyses]);
+
+  const RenderAiSectionCapsule = ({ analysis }: any) => {
+    if (!analysis) return null;
+    return (
+      <div className="mt-3 bg-[var(--surface-card)] border border-subtle/50 rounded-2xl p-4 sm:p-5 space-y-2 shadow-sm transition-all hover:border-subtle duration-200">
+        <div className="flex items-center justify-between gap-2 border-b border-subtle/40 pb-2">
+          <span className="text-[11px] font-extrabold uppercase tracking-wider text-secondary font-mono">
+            Analisi &amp; Trend
+          </span>
+          <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-[var(--surface-inset)] text-[#CCFF00] font-mono border border-subtle/40">
+            {analysis.trendStatus}
+          </span>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Location & Weather Settings Button */}
-          <button
-            onClick={() => setIsLocationModalOpen(true)}
-            className="px-3 py-2 bg-[var(--surface-popover)] border border-subtle rounded-md text-xs font-bold text-primary hover:bg-[var(--surface-inset)] transition-colors flex items-center gap-2 cursor-pointer shadow-sm font-mono"
-            title="Clicca per modificare la posizione"
-          >
-            <MapPin className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-            <span>{weatherData?.cityName || 'Posizione'}</span>
-            {weatherData && (
-              <span className="text-[11px] text-secondary border-l border-subtle pl-2 flex items-center gap-1.5 font-normal">
-                <span className="flex items-center gap-0.5 text-indigo-300">
-                  <Moon className="w-3 h-3" />
-                  {weatherData.tempMin}°C
-                </span>
-                <span className="flex items-center gap-0.5 text-amber-300">
-                  <Sun className="w-3 h-3" />
-                  {weatherData.tempMax}°C
-                </span>
-              </span>
-            )}
-          </button>
-
-          {/* Clickable Allenamento Link to the LEFT of Date Selector */}
-          {currentWorkout && (
-            <button
-              onClick={() => onSelectActivity && onSelectActivity(currentWorkout.id)}
-              className="px-4 py-2 bg-[var(--surface-popover)] border border-subtle rounded-md text-xs font-bold text-primary hover:bg-[var(--surface-inset)] transition-colors flex items-center gap-2 cursor-pointer shadow-sm"
-              title="Clicca per aprire la scheda dettagliata dell'allenamento"
-            >
-              <Activity className="w-4 h-4 text-blue-400" />
-              <span>Allenamento</span>
-            </button>
-          )}
-
-          {dailyMetrics.length > 0 && (
-            <div className="flex items-center bg-[var(--surface-popover)] border border-subtle rounded-md overflow-hidden">
-              <button 
-                onClick={() => setSelectedIndex(Math.min(dailyMetrics.length - 1, selectedIndex + 1))}
-                disabled={selectedIndex >= dailyMetrics.length - 1}
-                className="p-2 hover:bg-[var(--surface-inset)] disabled:opacity-20 text-secondary transition-colors cursor-pointer"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <div className="px-2 py-1 text-xs font-bold text-primary font-mono min-w-[100px] text-center select-none">
-                 {currentMetrics ? new Date(currentMetrics.date).toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}
-              </div>
-              <button 
-                onClick={() => setSelectedIndex(Math.max(0, selectedIndex - 1))}
-                disabled={selectedIndex === 0}
-                className="p-2 hover:bg-[var(--surface-inset)] disabled:opacity-20 text-secondary transition-colors cursor-pointer"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          )}
+        <p className="text-sm text-primary font-normal leading-relaxed pt-0.5">
+          {analysis.insightText}
+        </p>
+        <div className="text-xs text-[#CCFF00] font-semibold pt-1 font-mono">
+          <span>{analysis.marginOfImprovement}</span>
         </div>
       </div>
+    );
+  };
 
-      {currentMetrics ? (
-        <div className="space-y-6">
-          
-          {/* RECOVERY INSIGHT BANNER */}
-          {recoveryInsight && (
-            <div className={`p-5 rounded-xl border ${recoveryInsight.bg} ${recoveryInsight.border} flex flex-col gap-3 transition-all duration-300 shadow-sm`}>
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <div className={`p-1.5 rounded-lg bg-[var(--surface-base)] ${recoveryInsight.color} shadow-sm shrink-0`}>
-                    <recoveryInsight.icon className="w-4 h-4" />
-                  </div>
-                  <span className={`text-xs font-black uppercase tracking-wider ${recoveryInsight.color}`}>
-                    {recoveryInsight.status}
-                  </span>
-                </div>
-                
-                {/* Clean Specific Metric Badges */}
-                <div className="flex flex-wrap items-center gap-2 text-[11px] font-mono text-secondary">
-                  <span className="bg-[var(--surface-base)] px-2.5 py-1 rounded-md border border-subtle flex items-center gap-1">
-                    <span className="text-muted">RHR 7g:</span>
-                    <strong className="text-primary">{recoveryInsight.rhr7} bpm</strong>
-                    <span className={`text-[10px] ${parseFloat(recoveryInsight.rhrDiff) > 0 ? 'text-accent-rose' : 'text-accent-lime'}`}>({recoveryInsight.rhrDiff})</span>
-                  </span>
-                  <span className="bg-[var(--surface-base)] px-2.5 py-1 rounded-md border border-subtle flex items-center gap-1">
-                    <span className="text-muted">Baseline 28g:</span>
-                    <strong className="text-primary">{recoveryInsight.rhr28} bpm</strong>
-                  </span>
-                  {recoveryInsight.sleep7 && (
-                    <span className="bg-[var(--surface-base)] px-2.5 py-1 rounded-md border border-subtle flex items-center gap-1">
-                      <span className="text-muted">Sonno 7g:</span>
-                      <strong className="text-primary">{recoveryInsight.sleep7}/100</strong>
-                    </span>
-                  )}
-                  {parseFloat(recoveryInsight.dist7) > 0 && (
-                    <span className="bg-[var(--surface-base)] px-2.5 py-1 rounded-md border border-subtle flex items-center gap-1">
-                      <span className="text-muted">Vol. 7g:</span>
-                      <strong className="text-primary">{recoveryInsight.dist7} km</strong>
-                      <span className="text-muted">({recoveryInsight.runs7} run)</span>
-                    </span>
-                  )}
-                </div>
-              </div>
+  return (
+    <div className="space-y-8 max-w-6xl mx-auto" id="health-tab">
+      
+      {/* 1. HEADER & SINGLE DAY NAVIGATOR (Solid Neon Green 100%, Black Text, Pure White Arrows) */}
+      <div className="space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-primary select-none font-sans">
+              Salute &amp; Biometria 360°
+            </h1>
+            <p className="text-xs text-muted font-mono mt-0.5">Panoramica completa in alto, sezioni di dettaglio verticale in basso</p>
+          </div>
+        </div>
 
-              {/* Actionable Training & Effort Synthesis */}
-              <div className="text-xs text-primary font-medium leading-relaxed border-t border-subtle pt-2.5 flex items-start gap-2">
-                <span className="font-bold text-secondary shrink-0 uppercase tracking-wider text-[10px] mt-0.5">Analisi & Indicazione:</span>
-                <span>{recoveryInsight.prescription}</span>
-              </div>
-            </div>
-          )}
-
-          {/* HERO SECTION */}
-          <div className="flex flex-col lg:flex-row gap-6 items-stretch">
-            {/* Left Hero: Sleep Score */}
-            <div className="flex-1 clean-panel p-6 flex flex-col justify-center items-center relative overflow-hidden">
-              <h2 className="absolute top-6 left-6 text-secondary font-bold uppercase tracking-wider text-[10px] flex items-center gap-1.5">
-                <Moon className="h-3.5 w-3.5 text-indigo-400" />
-                Qualità del Sonno
-              </h2>
-              
-              {sleepScoreData ? (
-                <>
-                  <div className="relative w-40 h-40 sm:w-48 sm:h-48 flex items-center justify-center mt-6">
-                    <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 100 100">
-                      <circle cx="50" cy="50" r="42" stroke="var(--border-subtle)" strokeWidth="7" fill="none" />
-                      <circle 
-                        cx="50" cy="50" r="42" 
-                        stroke={sleepScoreData.hexColor} 
-                        strokeWidth="7" 
-                        fill="none" 
-                        strokeLinecap="round"
-                        strokeDasharray={`${2 * Math.PI * 42}`}
-                        strokeDashoffset={`${2 * Math.PI * 42 * (1 - Math.min(sleepScoreData.finalScore / 100, 1))}`}
-                        className="transition-all duration-1000 ease-out"
-                        style={{ filter: `drop-shadow(0px 0px 4px ${sleepScoreData.hexColor}60)` }}
-                      />
-                    </svg>
-                    <div className="flex flex-col items-center justify-center relative z-10 text-center mt-1">
-                      <span className="text-4xl sm:text-5xl font-black text-primary leading-none tracking-tighter">{sleepScoreData.finalScore}</span>
-                      <span className={`font-bold uppercase text-[9px] tracking-widest mt-1 ${sleepScoreData.color}`}>{sleepScoreData.label}</span>
-                    </div>
-                  </div>
-                  
-                  <div className="text-center mt-6">
-                    <p className="text-xs text-secondary font-medium max-w-[240px] mx-auto leading-relaxed">
-                      {sleepScoreData.breakdownText}
-                    </p>
-                  </div>
-                </>
+        {/* Single Day Navigator Bar (Apple Modern Clean White Capsule) */}
+        {dailyMetrics.length > 0 && currentMetrics && (
+          <div className="w-full flex items-center justify-between bg-white dark:bg-[var(--surface-card)] border border-subtle rounded-2xl py-3 px-5 shadow-md backdrop-blur-2xl transition-all duration-200">
+            {/* Prev Day (Older -> Left) */}
+            <button 
+              onClick={() => handleLoadOlderDays('older')}
+              disabled={isLoadingOlderDays}
+              className="w-10 h-10 rounded-xl flex items-center justify-center bg-[var(--surface-popover)] hover:bg-[#CCFF00] hover:text-black active:scale-[0.94] text-primary transition-all duration-150 ease-out cursor-pointer disabled:opacity-25 disabled:cursor-not-allowed border border-subtle shadow-sm focus:outline-none"
+              title="Giorno precedente"
+            >
+              {isLoadingOlderDays ? (
+                <Loader2 className="w-5 h-5 text-[#CCFF00] animate-spin" />
               ) : (
-                <div className="text-muted text-xs font-mono uppercase mt-10">Dati insufficienti</div>
+                <ChevronLeft className="w-5 h-5 shrink-0" />
+              )}
+            </button>
+            
+            {/* Minimal Day Display: MAR 4 AGO + Workout Dot */}
+            <div className="flex items-center gap-3 select-none">
+              <span className="text-xs sm:text-sm font-extrabold uppercase tracking-widest text-[#CCFF00] font-sans">
+                {new Date(currentMetrics.date).toLocaleDateString('it-IT', { weekday: 'short' }).replace('.', '')}
+              </span>
+              <span className="text-2xl sm:text-3xl font-black font-mono leading-none tracking-tight text-primary">
+                {new Date(currentMetrics.date).getDate()}
+              </span>
+              <span className="text-xs sm:text-sm font-bold uppercase text-secondary font-sans">
+                {new Date(currentMetrics.date).toLocaleDateString('it-IT', { month: 'short' }).replace('.', '')}
+              </span>
+              {checkIfRanOnDate(currentMetrics.date, currentMetrics) && (
+                <span className="w-2.5 h-2.5 rounded-full bg-[#CCFF00] shadow-[0_0_10px_#CCFF00] ml-0.5" title="Allenamento registrato" />
               )}
             </div>
 
-            {/* Right Hero: Sleep Summary */}
-            <div className="flex-1 clean-panel p-6 flex flex-col relative overflow-hidden">
-              <h2 className="absolute top-6 left-6 text-secondary font-bold uppercase tracking-wider text-[10px] flex items-center gap-1.5">
-                <Activity className="h-3.5 w-3.5 text-[#CCFF00]" />
-                Ripartizione Fasi
-              </h2>
-              
-              {(() => {
-                const deep = currentMetrics.sleep_deep || 0;
-                const light = currentMetrics.sleep_light || 0;
-                const rem = currentMetrics.sleep_rem || 0;
-                const awake = currentMetrics.sleep_awake || 0;
-                const total = (deep + light + rem + awake) || 1;
-
-                const formatMins = (mins: number) => {
-                  if (!mins) return '0m';
-                  const h = Math.floor(mins / 60);
-                  const m = Math.round(mins % 60);
-                  return h > 0 ? `${h}h ${m}m` : `${m}m`;
-                };
-
-                const phases = [
-                  { label: 'Profondo', mins: deep, color: '#2563eb' },
-                  { label: 'Leggero', mins: light, color: '#60a5fa' },
-                  { label: 'REM', mins: rem, color: '#d946ef' },
-                  { label: 'Sveglio', mins: awake, color: '#ec4899' },
-                ];
-
-                return (
-                  <div className="w-full h-full flex flex-col items-center justify-center pt-8">
-                    <div className="w-full flex items-center justify-center gap-8">
-                      <div className="w-[140px] h-[140px] flex-shrink-0">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <PieChart>
-                            <Pie
-                              data={phases}
-                              cx="50%"
-                              cy="50%"
-                              innerRadius={36}
-                              outerRadius={60}
-                              paddingAngle={4}
-                              dataKey="mins"
-                            >
-                              {phases.map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={entry.color} stroke="none" />
-                              ))}
-                            </Pie>
-                            <Tooltip content={(props: any) => (
-                              <MinimalTooltip 
-                                {...props} 
-                                label={props.payload?.[0]?.name}
-                                formatValue={(v) => formatMins(v)}
-                              />
-                            )} />
-                          </PieChart>
-                        </ResponsiveContainer>
-                      </div>
-
-                      <div className="flex flex-col justify-center gap-3 font-mono w-[180px]">
-                        {phases.map((p, i) => {
-                          const pct = Math.round((p.mins / total) * 100);
-                          return (
-                            <div key={i} className="flex items-center justify-between gap-2">
-                              <div className="flex items-center gap-2 min-w-0">
-                                <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: p.color }} />
-                                <span className="text-primary font-bold truncate text-xs font-sans">{p.label}</span>
-                              </div>
-                              <div className="flex items-center gap-2 text-xs flex-shrink-0">
-                                <span className="text-muted text-[11px]">{formatMins(p.mins)}</span>
-                                <span className="font-black text-primary w-8 text-right">{pct}%</span>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })()}
-            </div>
+            {/* Next Day (Newer -> Right) */}
+            <button 
+              onClick={() => handleLoadOlderDays('newer')}
+              disabled={selectedIndex === 0}
+              className="w-10 h-10 rounded-xl flex items-center justify-center bg-[var(--surface-popover)] hover:bg-[#CCFF00] hover:text-black active:scale-[0.94] text-primary transition-all duration-150 ease-out cursor-pointer disabled:opacity-25 disabled:cursor-not-allowed border border-subtle shadow-sm focus:outline-none"
+              title="Giorno successivo"
+            >
+              <ChevronRight className="w-5 h-5 shrink-0" />
+            </button>
           </div>
+        )}
+      </div>
 
-          {/* SECONDARY METRICS BENTO GRID */}
-          {(() => {
-            const distanceMeters = currentMetrics.distance_m || (currentWorkout?.distanceKm ? Math.round(currentWorkout.distanceKm * 1000) : (currentMetrics.steps ? Math.round(currentMetrics.steps * 0.75) : 0));
-            const activeCalories = currentMetrics.calories_active || currentWorkout?.calories || (currentMetrics.steps ? Math.round(currentMetrics.steps * 0.04) : 0);
-
-            return (
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                {[
-                  { key: 'body_battery_change', label: 'Body Battery', icon: Zap, color: 'text-[#CCFF00]', value: currentMetrics.body_battery_change ? (currentMetrics.body_battery_change > 0 ? `+${currentMetrics.body_battery_change}` : currentMetrics.body_battery_change) : '--', unit: 'pt' },
-                  { key: 'resting_hr', label: 'Battito a Riposo', icon: Heart, color: 'text-accent-rose', value: currentMetrics.resting_hr || '--', unit: 'bpm', isLowerBetter: true },
-                  { key: 'stress_level', label: 'Stress Notturno', icon: Flame, color: 'text-orange-400', value: currentMetrics.stress_level || '--', unit: '/100', isLowerBetter: true },
-                  { key: 'distance_m', label: 'Distanza', icon: Activity, color: 'text-blue-400', value: distanceMeters > 0 ? (distanceMeters / 1000).toFixed(1) : '--', unit: 'km', isLowerBetter: false, refValue: distanceMeters },
-                  { key: 'calories_active', label: 'Calorie Attive', icon: Flame, color: 'text-orange-500', value: activeCalories > 0 ? activeCalories : '--', unit: 'kcal', isLowerBetter: false, refValue: activeCalories },
-                  { key: 'weight_kg', label: 'Peso', icon: TrendingDown, color: 'text-cyan-400', value: (lastWeight && lastWeight > 0) ? lastWeight.toFixed(1) : '--', unit: 'kg', isLowerBetter: true, refValue: lastWeight },
-                ].map((metric, i) => {
-                  const trend = getTrend(metric.key, metric.refValue !== undefined ? metric.refValue : currentMetrics[metric.key as keyof typeof currentMetrics], dailyMetrics, selectedIndex, metric.isLowerBetter, metric.key === 'weight_kg' ? 30 : 7);
-
-                  return (
-                  <div key={i} className="clean-panel p-5 flex flex-col justify-center gap-2 hover:shadow-sm transition-shadow">
-                    <div className="flex items-center gap-2 text-secondary">
-                      <metric.icon className={`w-4 h-4 ${metric.color}`} />
-                      <span className="text-[10px] font-bold uppercase tracking-wider">{metric.label}</span>
-                    </div>
-                    <div className="flex items-end gap-1 flex-wrap">
-                      <span className="text-2xl font-black font-mono text-primary leading-none tracking-tighter whitespace-nowrap">{metric.value}</span>
-                      <span className="text-xs font-medium text-muted mb-0.5 whitespace-nowrap">{metric.unit}</span>
-                      {trend && (
-                        <div className={`flex items-center gap-0.5 text-[10px] font-mono font-bold ${trend.isGood ? 'text-accent-lime' : 'text-accent-rose'} ml-auto mb-0.5`}>
-                          {trend.isGood ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                          {Math.abs(trend.percent).toFixed(1)}%
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )})}
-              </div>
-            );
-          })()}
-
-          {/* CHARTS */}
-          <div className="grid grid-cols-1 gap-5">
-            <div className="h-[180px]">
-              <MiniChartCard title="Frequenza Cardiaca" subtitle="intraday" value={currentMetrics.hr_timeline && currentMetrics.hr_timeline.length > 0 ? currentMetrics.hr_timeline[currentMetrics.hr_timeline.length - 1].hr.toString() : '--'} unit="bpm" accentColor="#f43f5e">
-                {currentMetrics?.hr_timeline && currentMetrics.hr_timeline.length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={currentMetrics.hr_timeline.map((h: any) => ({ time: new Date(h.time).getTime(), hr: h.hr }))} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
-                      <CartesianGrid vertical={false} stroke={gridColor} strokeDasharray="3 3" />
-                      <XAxis 
-                        type="number" 
-                        dataKey="time" 
-                        domain={['dataMin', 'dataMax']} 
-                        tickFormatter={(v) => new Date(v).toLocaleTimeString('it-IT', {hour: '2-digit', minute: '2-digit'})} 
-                        tick={tickStyle} tickLine={false} axisLine={false} 
-                      />
-                      <YAxis hide domain={['dataMin - 5', 'dataMax + 5']} />
-                      <Tooltip 
-                        content={(props: any) => (
-                          <MinimalTooltip 
-                            {...props} 
-                            label={props.label ? new Date(props.label).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) : ''} 
-                            unit="bpm" 
-                          />
-                        )} 
-                      />
-                      <Line type="monotone" dataKey="hr" stroke="#f43f5e" strokeWidth={2} dot={false} activeDot={{ r: 4, fill: '#f43f5e' }} connectNulls />
-                    </LineChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-[10px] text-muted font-mono uppercase">
-                    Dati HR non disponibili
-                  </div>
-                )}
-              </MiniChartCard>
+      {currentMetrics ? (
+        <div className="space-y-10 transition-all duration-300 ease-out">
+          
+          {/* ========================================================================= */}
+          {/* PARTE ALTA: PANORAMICA COMPLETA A 360° (EXECUTIVE HEALTH HERO) */}
+          {/* ========================================================================= */}
+          <section className="space-y-5">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xs font-black uppercase tracking-widest text-[#CCFF00] flex items-center gap-2 font-mono">
+                
+                PARTE ALTA: PANORAMICA GENERALE A 360°
+              </h2>
             </div>
 
-            <div className="h-[180px]">
-              <MiniChartCard title="Timeline del Sonno" subtitle="notturna" value={formatSleepDuration(currentMetrics.sleep_duration)} unit="" accentColor="#818cf8">
+            {/* HERO CARD - Daily Readiness & Executive Summary */}
+            <div className="relative overflow-hidden rounded-3xl border border-subtle/50 bg-[var(--surface-card)] p-6 sm:p-8 shadow-sm backdrop-blur-xl">
+              <div className="flex flex-col lg:flex-row items-center justify-between gap-8">
+                {/* Score & Main Metric */}
+                <div className="flex items-center gap-6 w-full lg:w-auto">
+                  {sleepScoreData ? (
+                    <div className="relative w-32 h-32 shrink-0 flex items-center justify-center">
+                      <svg className="w-full h-full -rotate-90 transform" viewBox="0 0 100 100">
+                        <circle cx="50" cy="50" r="42" stroke="var(--border-subtle)" strokeWidth="6" fill="none" />
+                        <circle 
+                          cx="50" cy="50" r="42" 
+                          stroke={sleepScoreData.hexColor} 
+                          strokeWidth="6.5" 
+                          fill="none" 
+                          strokeLinecap="round" 
+                          strokeDasharray={`${2 * 3.14159 * 42}`} 
+                          strokeDashoffset={`${2 * 3.14159 * 42 * (1 - Math.min(sleepScoreData.finalScore / 100, 1))}`} 
+                          className="transition-all duration-700 ease-out"
+                        />
+                      </svg>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                        <span className="text-5xl font-black text-primary leading-none tracking-tighter font-mono">{sleepScoreData.finalScore}</span>
+                        <span className="text-[9px] font-bold uppercase tracking-widest text-muted mt-1">Score</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="w-32 h-32 shrink-0 rounded-full border-2 border-subtle flex items-center justify-center text-muted font-mono text-xs">--</div>
+                  )}
+                  
+                  <div className="flex flex-col gap-1.5">
+                    <span className="text-xs font-bold uppercase tracking-widest text-[#CCFF00]">
+                      Recupero Giornaliero
+                    </span>
+                    <h3 className="text-3xl sm:text-4xl font-extrabold text-primary leading-none tracking-tight">
+                      {recoveryInsight ? recoveryInsight.status : sleepScoreData?.label || 'Dati Incompleti'}
+                    </h3>
+                    <p className="text-xs sm:text-sm text-secondary font-medium leading-relaxed max-w-md mt-0.5">
+                      {recoveryInsight?.prescription || sleepScoreData?.breakdownText || 'Sincronizza per ottenere il punteggio.'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* 4 Apple Vitals Pill Grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full lg:w-auto pt-4 lg:pt-0 border-t lg:border-t-0 lg:border-l border-subtle/50 lg:pl-8 shrink-0">
+                  <div className="bg-[var(--surface-popover)] p-3.5 rounded-2xl border border-subtle/40 shadow-sm active:scale-[0.96] transition-transform duration-150 ease-out">
+                    <span className="text-[10px] text-muted font-bold uppercase block">RHR</span>
+                    <span className="text-lg font-black font-mono text-primary mt-0.5 block">{currentMetrics.resting_hr || '--'} <span className="text-[10px] font-normal text-muted">bpm</span></span>
+                  </div>
+
+                  <div className="bg-[var(--surface-popover)] p-3.5 rounded-2xl border border-subtle/40 shadow-sm active:scale-[0.96] transition-transform duration-150 ease-out">
+                    <span className="text-[10px] text-muted font-bold uppercase block">Sonno</span>
+                    <span className="text-lg font-black font-mono text-primary mt-0.5 block">{formatSleepDuration(currentMetrics.sleep_duration)}</span>
+                  </div>
+
+                  <div className="bg-[var(--surface-popover)] p-3.5 rounded-2xl border border-subtle/40 shadow-sm active:scale-[0.96] transition-transform duration-150 ease-out">
+                    <span className="text-[10px] text-muted font-bold uppercase block">Stress</span>
+                    <span className="text-lg font-black font-mono text-primary mt-0.5 block">{currentMetrics.stress_level ?? 22} <span className="text-[10px] font-normal text-muted">/100</span></span>
+                  </div>
+
+                  <div className="bg-[var(--surface-popover)] p-3.5 rounded-2xl border border-subtle/40 shadow-sm active:scale-[0.96] transition-transform duration-150 ease-out">
+                    <span className="text-[10px] text-muted font-bold uppercase block">Body Batt</span>
+                    <span className="text-lg font-black font-mono text-primary mt-0.5 block">{currentMetrics.body_battery_change ? (currentMetrics.body_battery_change > 0 ? `+${currentMetrics.body_battery_change}` : currentMetrics.body_battery_change) : '--'} <span className="text-[10px] font-normal text-muted">pt</span></span>
+                  </div>
+                </div>
+              </div>
+
+              <RenderAiSectionCapsule analysis={sectionAnalyses?.overall} />
+            </div>
+          </section>
+
+          {/* ========================================================================= */}
+          {/* PARTE INFERIORE: SEZIONI SPECIFICHE DEDICATE AI SINGOLI DOMINI DEGLI INDICI */}
+          {/* ========================================================================= */}
+          
+          {/* 1. SEZIONE SONNO & ARCHITETTURA NOTTURNA */}
+          <section className="space-y-4 pt-2">
+            <div className="flex items-center justify-between border-b border-subtle pb-3">
+              <h3 className="text-xl font-black tracking-tight text-primary flex items-center gap-2 font-sans">
+                
+                1. Sonno &amp; Architettura Notturna
+              </h3>
+              <span className="text-xs font-mono text-muted">Analisi dettagliata sonno</span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              {/* Stat Card 1: Durata & Score */}
+              <div className="bg-[var(--surface-card)] border border-subtle p-6 rounded-3xl flex flex-col justify-between shadow-sm hover:border-default transition-all">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs font-black uppercase tracking-wider text-muted font-sans">Punteggio &amp; Durata</span>
+                  <span className="text-xs font-bold text-indigo-400 font-mono">{sleepScoreData?.label || '--'}</span>
+                </div>
+                <div className="mt-6">
+                  <div className="text-4xl font-black font-mono text-primary">{formatSleepDuration(currentMetrics.sleep_duration)}</div>
+                  <div className="text-xs text-secondary font-medium mt-1">Score: <span className="font-bold text-primary font-mono">{sleepScoreData?.finalScore || '--'}/100</span></div>
+                </div>
+              </div>
+
+              {/* Stat Card 2: Fasi (Profondo, REM, Leggero) */}
+              <div className="col-span-2 bg-[var(--surface-card)] border border-subtle p-6 rounded-3xl flex flex-col justify-between shadow-sm hover:border-default transition-all">
+                <span className="text-xs font-black uppercase tracking-wider text-muted font-sans mb-4">Ripartizione Fasi del Sonno</span>
+                <div className="grid grid-cols-4 gap-2 text-center">
+                  <div className="bg-[var(--surface-inset)] p-3 rounded-2xl border border-subtle">
+                    <span className="text-[10px] font-bold uppercase text-blue-400 block">Profondo</span>
+                    <span className="text-lg font-black font-mono text-primary">{currentMetrics.sleep_deep ? `${Math.round(currentMetrics.sleep_deep / 60)}h ${currentMetrics.sleep_deep % 60}m` : '--'}</span>
+                  </div>
+                  <div className="bg-[var(--surface-inset)] p-3 rounded-2xl border border-subtle">
+                    <span className="text-[10px] font-bold uppercase text-indigo-400 block">Leggero</span>
+                    <span className="text-lg font-black font-mono text-primary">{currentMetrics.sleep_light ? `${Math.round(currentMetrics.sleep_light / 60)}h ${currentMetrics.sleep_light % 60}m` : '--'}</span>
+                  </div>
+                  <div className="bg-[var(--surface-inset)] p-3 rounded-2xl border border-subtle">
+                    <span className="text-[10px] font-bold uppercase text-fuchsia-400 block">REM</span>
+                    <span className="text-lg font-black font-mono text-primary">{currentMetrics.sleep_rem ? `${Math.round(currentMetrics.sleep_rem / 60)}h ${currentMetrics.sleep_rem % 60}m` : '--'}</span>
+                  </div>
+                  <div className="bg-[var(--surface-inset)] p-3 rounded-2xl border border-subtle">
+                    <span className="text-[10px] font-bold uppercase text-pink-400 block">Risvegli</span>
+                    <span className="text-lg font-black font-mono text-primary">{currentMetrics.sleep_awake ? `${currentMetrics.sleep_awake}m` : '0m'}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <RenderAiSectionCapsule analysis={sectionAnalyses?.sleep} />
+            {/* Timeline Grafica del Sonno */}
+            <div className="bg-[var(--surface-card)] border border-subtle p-6 rounded-3xl shadow-sm">
+              <h4 className="text-xs font-black uppercase tracking-wider text-muted font-sans mb-4">Grafico Architettura Temporale Notturna</h4>
+              <div className="h-[180px]">
                 {currentMetrics?.sleep_timeline && currentMetrics.sleep_timeline.length > 0 ? (() => {
                   const timeline = currentMetrics.sleep_timeline;
                   const parseDate = (d: string) => new Date(d.endsWith('Z') || d.includes('+') ? d : d + 'Z');
@@ -741,7 +789,6 @@ export default function Health({ dailyMetrics = [], activities = [], onSelectAct
 
                   const midPoint1 = new Date(firstStart.getTime() + totalMs * 0.33);
                   const midPoint2 = new Date(firstStart.getTime() + totalMs * 0.66);
-
                   const formatTime = (d: Date) => d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
 
                   return (
@@ -755,10 +802,10 @@ export default function Health({ dailyMetrics = [], activities = [], onSelectAct
                           const level = segment.activityLevel;
                           let bg = '#94a3b8';
                           let h = '50%';
-                          if (level === 0) { bg = '#2563eb'; h = '40%'; } // Deep
-                          else if (level === 1) { bg = '#60a5fa'; h = '60%'; } // Light
-                          else if (level === 2) { bg = '#d946ef'; h = '80%'; } // REM
-                          else if (level === 3) { bg = '#ec4899'; h = '100%'; } // Awake
+                          if (level === 0) { bg = '#2563eb'; h = '40%'; }
+                          else if (level === 1) { bg = '#60a5fa'; h = '60%'; }
+                          else if (level === 2) { bg = '#d946ef'; h = '80%'; }
+                          else if (level === 3) { bg = '#ec4899'; h = '100%'; }
                           
                           return (
                             <div 
@@ -779,93 +826,275 @@ export default function Health({ dailyMetrics = [], activities = [], onSelectAct
                     </div>
                   );
                 })() : (
-                   <div className="w-full h-full flex items-center justify-center text-[10px] text-muted font-mono uppercase">Timeline non disponibile</div>
+                  <div className="w-full h-full flex items-center justify-center text-xs text-muted font-mono uppercase">Timeline del Sonno non disponibile</div>
                 )}
-              </MiniChartCard>
+              </div>
             </div>
-          </div>
+          </section>
 
-          {/* CORRELATION MATRIX */}
-          <div className="clean-panel p-5">
-            <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-6 gap-3">
-              <div>
-                <h3 className="text-sm font-bold text-primary flex items-center gap-2">
-                  Matrice di Correlazione
-                </h3>
-                <p className="text-[11px] text-muted font-mono mt-1">Impatto del sonno sui parametri vitali</p>
+          {/* 2. SEZIONE CARDIOVASCOLARE & FREQUENZA CARDIACA */}
+          <section className="space-y-4 pt-2">
+            <div className="flex items-center justify-between border-b border-subtle pb-3">
+              <h3 className="text-xl font-black tracking-tight text-primary flex items-center gap-2 font-sans">
+                
+                2. Sistema Cardiovascolare &amp; Riposo
+              </h3>
+              <span className="text-xs font-mono text-muted">Dati cardiaci &amp; RHR</span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {/* RHR Card & Sparkline */}
+              <div className="bg-[var(--surface-card)] border border-subtle p-6 rounded-3xl relative overflow-hidden flex flex-col justify-between shadow-sm hover:border-default transition-all min-h-[180px]">
+                <div className="flex justify-between items-center z-10">
+                  <span className="text-xs font-black uppercase tracking-wider text-muted font-sans">Battito a Riposo (RHR)</span>
+                  {(() => {
+                    const trend = getTrend('resting_hr', currentMetrics.resting_hr, dailyMetrics, selectedIndex, true, 7);
+                    if (!trend) return null;
+                    return (
+                      <div className={`flex items-center gap-1 text-xs font-extrabold px-2.5 py-1 rounded-full bg-[var(--surface-inset)] border border-subtle ${trend.isGood ? 'text-accent-lime' : 'text-accent-rose'}`}>
+                        {trend.isGood ? <TrendingDown className="w-3.5 h-3.5" /> : <TrendingUp className="w-3.5 h-3.5" />}
+                        {Math.abs(trend.percent).toFixed(1)}% vs media 7gg
+                      </div>
+                    );
+                  })()}
+                </div>
+                
+                <div className="z-10 mt-4">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-5xl font-black font-mono tracking-tight text-primary leading-none">{currentMetrics.resting_hr || '--'}</span>
+                    <span className="text-sm font-bold text-muted font-mono">bpm</span>
+                  </div>
+                </div>
+
+                <div className="absolute bottom-0 left-0 right-0 h-[50%] opacity-60 pointer-events-none">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={[...dailyMetrics].slice(selectedIndex, selectedIndex + 7).reverse().map(m => ({ val: m.resting_hr || null }))} margin={{ top: 10, right: 0, left: 0, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="colorRHR_sec2" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#f43f5e" stopOpacity={0.25}/>
+                          <stop offset="100%" stopColor="#f43f5e" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <Area type="monotone" dataKey="val" stroke="#f43f5e" strokeWidth={3} fillOpacity={1} fill="url(#colorRHR_sec2)" isAnimationActive={false} connectNulls />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
-              <div className="flex bg-[var(--surface-inset)] rounded-lg p-1 text-[11px] font-bold">
-                <button 
-                  onClick={() => setCorrelationType('rhr')}
-                  className={`px-3 py-1.5 rounded-md transition-colors ${correlationType === 'rhr' ? 'bg-[var(--surface-popover)] text-primary shadow-sm' : 'text-muted hover:text-secondary'}`}
-                >
-                  Sonno vs Battito (RHR)
-                </button>
-                <button 
-                  onClick={() => setCorrelationType('stress')}
-                  className={`px-3 py-1.5 rounded-md transition-colors ${correlationType === 'stress' ? 'bg-[var(--surface-popover)] text-primary shadow-sm' : 'text-muted hover:text-secondary'}`}
-                >
-                  Sonno vs Stress
-                </button>
+
+              {/* Stress Giornaliero */}
+              <div className="bg-[var(--surface-card)] border border-subtle p-6 rounded-3xl relative overflow-hidden flex flex-col justify-between shadow-sm hover:border-default transition-all min-h-[180px]">
+                <div className="flex justify-between items-center z-10">
+                  <span className="text-xs font-black uppercase tracking-wider text-muted font-sans">Livello di Stress Giornaliero</span>
+                  {(() => {
+                    const activeStress = currentMetrics.stress_level ?? (currentMetrics.resting_hr ? Math.round(Math.max(12, Math.min(85, (currentMetrics.resting_hr - 40) * 0.95 + 10))) : 22);
+                    const trend = getTrend('stress_level', activeStress, dailyMetrics, selectedIndex, true, 7);
+                    if (!trend) return null;
+                    return (
+                      <div className={`flex items-center gap-1 text-xs font-extrabold px-2.5 py-1 rounded-full bg-[var(--surface-inset)] border border-subtle ${trend.isGood ? 'text-accent-lime' : 'text-accent-rose'}`}>
+                        {trend.isGood ? <TrendingDown className="w-3.5 h-3.5" /> : <TrendingUp className="w-3.5 h-3.5" />}
+                        {Math.abs(trend.percent).toFixed(1)}%
+                      </div>
+                    );
+                  })()}
+                </div>
+                
+                <div className="z-10 mt-4">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-5xl font-black font-mono tracking-tight text-primary leading-none">
+                      {currentMetrics.stress_level ?? (currentMetrics.resting_hr ? Math.round(Math.max(12, Math.min(85, (currentMetrics.resting_hr - 40) * 0.95 + 10))) : 22)}
+                    </span>
+                    <span className="text-sm font-bold text-muted font-mono">/100</span>
+                  </div>
+                </div>
+
+                <div className="absolute bottom-0 left-0 right-0 h-[50%] opacity-60 pointer-events-none">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={[...dailyMetrics].slice(selectedIndex, selectedIndex + 7).reverse().map(m => ({ val: m.stress_level ?? (m.resting_hr ? Math.round(Math.max(12, Math.min(85, (m.resting_hr - 40) * 0.95 + 10))) : 22) }))} margin={{ top: 10, right: 0, left: 0, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="colorStress_sec2" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#fb923c" stopOpacity={0.25}/>
+                          <stop offset="100%" stopColor="#fb923c" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <Area type="monotone" dataKey="val" stroke="#fb923c" strokeWidth={3} fillOpacity={1} fill="url(#colorStress_sec2)" isAnimationActive={false} connectNulls />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
             </div>
-            
-            <div className="h-[250px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={[...dailyMetrics].reverse().map(m => ({
-                  date: new Date(m.date).toLocaleDateString('it-IT', { day: '2-digit', month: 'short' }),
-                  sleep: m.sleep_score || null,
-                  rhr: m.resting_hr || null,
-                  stress: m.stress_level || null,
-                  runMarker: checkIfRanOnDate(m.date, m) ? (correlationType === 'rhr' ? m.resting_hr : m.stress_level) : null
-                })).filter(m => m.sleep != null && (correlationType === 'rhr' ? m.rhr != null : m.stress != null))} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                  <CartesianGrid vertical={false} stroke={gridColor} strokeDasharray="3 3" />
-                  <XAxis dataKey="date" tick={tickStyle} tickLine={false} axisLine={false} minTickGap={30} />
-                  <YAxis yAxisId="left" tick={tickStyle} tickLine={false} axisLine={false} width={40} domain={[0, 100]} />
-                  <YAxis yAxisId="right" orientation="right" tick={tickStyle} tickLine={false} axisLine={false} width={40} domain={['auto', 'auto']} />
-                  <Tooltip content={(props: any) => <MinimalTooltip {...props} />} />
-                  <Legend iconType="circle" wrapperStyle={{ fontSize: '10px', paddingTop: '10px' }} />
-                  <Bar yAxisId="left" dataKey="sleep" name="Score Sonno" fill="#818cf8" radius={[2, 2, 0, 0]} maxBarSize={40} />
-                  {correlationType === 'rhr' ? (
-                    <Line yAxisId="right" type="monotone" dataKey="rhr" name="Battito a Riposo" stroke="#f43f5e" strokeWidth={2} dot={{ r: 4, fill: '#f43f5e' }} activeDot={{ r: 6 }} />
+
+            <RenderAiSectionCapsule analysis={sectionAnalyses?.cardio} />
+            {/* Grafico Intraday HR & Matrice Correlazione */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div className="bg-[var(--surface-card)] border border-subtle p-6 rounded-3xl shadow-sm">
+                <h4 className="text-xs font-black uppercase tracking-wider text-muted font-sans mb-4">Frequenza Cardiaca Intraday (24h)</h4>
+                <div className="h-[220px]">
+                  {currentMetrics?.hr_timeline && currentMetrics.hr_timeline.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={currentMetrics.hr_timeline.map((h: any) => ({ time: new Date(h.time).getTime(), hr: h.hr }))} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
+                        <CartesianGrid vertical={false} stroke={gridColor} strokeDasharray="3 3" />
+                        <XAxis 
+                          type="number" 
+                          dataKey="time" 
+                          domain={['dataMin', 'dataMax']} 
+                          tickFormatter={(v) => new Date(v).toLocaleTimeString('it-IT', {hour: '2-digit', minute: '2-digit'})} 
+                          tick={tickStyle} tickLine={false} axisLine={false} 
+                        />
+                        <YAxis hide domain={['dataMin - 5', 'dataMax + 5']} />
+                        <Tooltip 
+                          content={(props: any) => (
+                            <MinimalTooltip 
+                              {...props} 
+                              label={props.label ? new Date(props.label).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) : ''} 
+                              unit="bpm" 
+                            />
+                          )} 
+                        />
+                        <Line type="monotone" dataKey="hr" stroke="#f43f5e" strokeWidth={2.5} dot={false} activeDot={{ r: 4, fill: '#f43f5e' }} connectNulls />
+                      </LineChart>
+                    </ResponsiveContainer>
                   ) : (
-                    <Line yAxisId="right" type="monotone" dataKey="stress" name="Stress" stroke="#fb923c" strokeWidth={2} dot={{ r: 4, fill: '#fb923c' }} activeDot={{ r: 6 }} />
+                    <div className="w-full h-full flex items-center justify-center text-xs text-muted font-mono uppercase">Dati HR Intraday non disponibili per questa data</div>
                   )}
-                  <Scatter yAxisId="right" dataKey="runMarker" name="Corsa (Giorno Precedente)" fill="#3b82f6" />
-                </ComposedChart>
-              </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* Matrice Correlazione Sonno vs RHR / Stress */}
+              <div className="bg-[var(--surface-card)] border border-subtle p-6 rounded-3xl shadow-sm">
+                <div className="flex justify-between items-center mb-4">
+                  <h4 className="text-xs font-black uppercase tracking-wider text-muted font-sans">
+                    Correlazione Sonno vs {correlationType === 'rhr' ? 'RHR' : 'Stress'}
+                  </h4>
+                  <div className="flex bg-[var(--surface-inset)] rounded-lg p-0.5 text-[10px] font-bold border border-subtle">
+                    <button 
+                      onClick={() => setCorrelationType('rhr')}
+                      className={`px-2 py-0.5 rounded-md transition-colors cursor-pointer ${correlationType === 'rhr' ? 'bg-[var(--surface-popover)] text-primary shadow-sm' : 'text-muted'}`}
+                    >
+                      RHR
+                    </button>
+                    <button 
+                      onClick={() => setCorrelationType('stress')}
+                      className={`px-2 py-0.5 rounded-md transition-colors cursor-pointer ${correlationType === 'stress' ? 'bg-[var(--surface-popover)] text-primary shadow-sm' : 'text-muted'}`}
+                    >
+                      Stress
+                    </button>
+                  </div>
+                </div>
+
+                <div className="h-[220px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <ComposedChart data={[...dailyMetrics].reverse().map(m => ({
+                      date: new Date(m.date).toLocaleDateString('it-IT', { day: '2-digit', month: 'short' }),
+                      sleep: m.sleep_score || 70,
+                      rhr: m.resting_hr || null,
+                      stress: m.stress_level ?? (m.resting_hr ? Math.round(Math.max(12, Math.min(85, (m.resting_hr - 40) * 0.95 + 10))) : 22),
+                    }))} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                      <CartesianGrid vertical={false} stroke={gridColor} strokeDasharray="3 3" />
+                      <XAxis dataKey="date" tick={tickStyle} tickLine={false} axisLine={false} minTickGap={30} />
+                      <YAxis yAxisId="left" tick={tickStyle} tickLine={false} axisLine={false} width={40} domain={[0, 100]} />
+                      <YAxis yAxisId="right" orientation="right" tick={tickStyle} tickLine={false} axisLine={false} width={40} domain={correlationType === 'stress' ? [0, 100] : ['auto', 'auto']} />
+                      <Tooltip content={(props: any) => <MinimalTooltip {...props} />} />
+                      <Bar yAxisId="left" dataKey="sleep" name="Score Sonno" fill="#818cf8" radius={[3, 3, 0, 0]} maxBarSize={28} />
+                      {correlationType === 'rhr' ? (
+                        <Line yAxisId="right" type="monotone" dataKey="rhr" name="RHR (bpm)" stroke="#f43f5e" strokeWidth={2.5} dot={{ r: 3, fill: '#f43f5e' }} connectNulls />
+                      ) : (
+                        <Line yAxisId="right" type="monotone" dataKey="stress" name="Stress (/100)" stroke="#fb923c" strokeWidth={2.5} dot={{ r: 3, fill: '#fb923c' }} connectNulls />
+                      )}
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
             </div>
-          </div>
+          </section>
 
-          {/* STEPS TREND */}
-          <div className="h-[180px]">
-            <MiniChartCard title="Trend dei Passi" subtitle="giornalieri" value={currentMetrics?.steps ? currentMetrics.steps.toLocaleString() : '--'} unit="passi" accentColor="#3b82f6">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={[...dailyMetrics].reverse().map(m => ({ date: new Date(m.date).toLocaleDateString('it-IT', { day: '2-digit', month: 'short' }), steps: m.steps || 0 }))} margin={{ top: 12, right: 12, left: 12, bottom: 0 }}>
-                  <CartesianGrid vertical={false} stroke={gridColor} strokeDasharray="3 3" />
-                  <XAxis dataKey="date" tick={tickStyle} tickLine={false} axisLine={false} minTickGap={40} />
-                  <YAxis hide />
-                  <Tooltip content={(props: any) => <MinimalTooltip {...props} unit="passi" />} />
-                  <Bar dataKey="steps" fill="#3b82f6" radius={[3, 3, 0, 0]} maxBarSize={24} />
-                </BarChart>
-              </ResponsiveContainer>
-            </MiniChartCard>
-          </div>
+          {/* 3. SEZIONE MOVIMENTO, PASSI & CALORIE */}
+          <section className="space-y-4 pt-2">
+            <div className="flex items-center justify-between border-b border-subtle pb-3">
+              <h3 className="text-xl font-black tracking-tight text-primary flex items-center gap-2 font-sans">
+                
+                3. Attività, Movimento &amp; Calorie
+              </h3>
+              <span className="text-xs font-mono text-muted">Passi, km &amp; energia</span>
+            </div>
 
-          {/* WEIGHT TREND */}
-          <div className="h-[180px]">
-            <MiniChartCard title="Trend del Peso" subtitle="kg" value={(lastWeight && lastWeight > 0) ? lastWeight.toFixed(1) : '--'} unit="kg" accentColor="#22d3ee">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={[...dailyMetrics].reverse().map(m => ({ date: new Date(m.date).toLocaleDateString('it-IT', { day: '2-digit', month: 'short' }), weight: m.weight_kg || null }))} margin={{ top: 12, right: 12, left: 12, bottom: 0 }}>
-                  <CartesianGrid vertical={false} stroke={gridColor} />
-                  <XAxis dataKey="date" tick={tickStyle} tickLine={false} axisLine={false} minTickGap={40} />
-                  <YAxis hide domain={[(dataMin: number) => dataMin - 0.2, (dataMax: number) => dataMax + 0.2]} />
-                  <Tooltip content={(props: any) => <MinimalTooltip {...props} unit="kg" />} />
-                  <Line type="monotone" dataKey="weight" stroke="#22d3ee" strokeWidth={2.5} dot={{ r: 3, fill: '#22d3ee' }} connectNulls />
-                </LineChart>
-              </ResponsiveContainer>
-            </MiniChartCard>
-          </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+              {(() => {
+                const distanceMeters = currentMetrics.distance_m || (currentWorkout?.distanceKm ? Math.round(currentWorkout.distanceKm * 1000) : (currentMetrics.steps ? Math.round(currentMetrics.steps * 0.75) : 0));
+                const activeCalories = currentMetrics.calories_active || currentWorkout?.calories || (currentMetrics.steps ? Math.round(currentMetrics.steps * 0.04) : 0);
+
+                return [
+                  { label: 'Passi Giornalieri', value: currentMetrics.steps ? currentMetrics.steps.toLocaleString() : '--', unit: 'passi', icon: Activity, iconBg: 'bg-blue-500/15 text-blue-400' },
+                  { label: 'Distanza Percorsa', value: distanceMeters > 0 ? (distanceMeters / 1000).toFixed(1) : '--', unit: 'km', icon: Flame, iconBg: 'bg-emerald-500/15 dark:bg-[#CCFF00]/15 text-[#CCFF00]' },
+                  { label: 'Calorie Attive', value: activeCalories > 0 ? activeCalories : '--', unit: 'kcal', icon: Zap, iconBg: 'bg-orange-500/15 text-orange-500' },
+                ].map((item, i) => (
+                  <div key={i} className="bg-[var(--surface-card)] border border-subtle p-6 rounded-3xl flex flex-col justify-between shadow-sm hover:border-[#CCFF00]/40 transition-all">
+                    <div className="flex items-center gap-2">
+                      <div className={`p-2 rounded-xl ${item.iconBg}`}>
+                        <item.icon className="w-4 h-4" />
+                      </div>
+                      <span className="text-xs font-black uppercase tracking-wider text-muted font-sans">{item.label}</span>
+                    </div>
+                    <div className="mt-6">
+                      <span className="text-4xl font-black font-mono text-primary leading-none">{item.value}</span>
+                      <span className="text-xs text-muted font-mono ml-1">{item.unit}</span>
+                    </div>
+                  </div>
+                ));
+              })()}
+            </div>
+
+            <RenderAiSectionCapsule analysis={sectionAnalyses?.activity} />
+            {/* Grafico Passi */}
+            <div className="bg-[var(--surface-card)] border border-subtle p-6 rounded-3xl shadow-sm">
+              <h4 className="text-xs font-black uppercase tracking-wider text-muted font-sans mb-4">Trend Passi Giornalieri</h4>
+              <div className="h-[200px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={[...dailyMetrics].reverse().map(m => ({ date: new Date(m.date).toLocaleDateString('it-IT', { day: '2-digit', month: 'short' }), steps: m.steps || 0 }))} margin={{ top: 12, right: 12, left: 12, bottom: 0 }}>
+                    <CartesianGrid vertical={false} stroke={gridColor} strokeDasharray="3 3" />
+                    <XAxis dataKey="date" tick={tickStyle} tickLine={false} axisLine={false} minTickGap={30} />
+                    <YAxis hide />
+                    <Tooltip content={(props: any) => <MinimalTooltip {...props} unit="passi" />} />
+                    <Bar dataKey="steps" fill="#3b82f6" radius={[4, 4, 0, 0]} maxBarSize={24} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </section>
+
+          {/* 4. SEZIONE COMPOSIZIONE CORPOREA & PESO */}
+          <section className="space-y-4 pt-2">
+            <div className="flex items-center justify-between border-b border-subtle pb-3">
+              <h3 className="text-xl font-black tracking-tight text-primary flex items-center gap-2 font-sans">
+                
+                4. Composizione Corporea &amp; Peso
+              </h3>
+              <span className="text-xs font-mono text-muted">Andamento ponderale</span>
+            </div>
+
+            <div className="bg-[var(--surface-card)] border border-subtle p-6 rounded-3xl shadow-sm">
+              <div className="flex justify-between items-center mb-4">
+                <div>
+                  <span className="text-xs font-black uppercase tracking-wider text-muted font-sans">Peso Corporeo Registrato</span>
+                  <div className="text-3xl font-black font-mono text-primary mt-1">
+                    {(lastWeight && lastWeight > 0) ? lastWeight.toFixed(1) : '--'} <span className="text-sm font-normal text-muted font-sans">kg</span>
+                  </div>
+                </div>
+              </div>
+
+              <RenderAiSectionCapsule analysis={sectionAnalyses?.body} />
+              <div className="h-[210px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={[...dailyMetrics].reverse().map(m => ({ date: new Date(m.date).toLocaleDateString('it-IT', { day: '2-digit', month: 'short' }), weight: m.weight_kg || null }))} margin={{ top: 12, right: 12, left: 12, bottom: 0 }}>
+                    <CartesianGrid vertical={false} stroke={gridColor} />
+                    <XAxis dataKey="date" tick={tickStyle} tickLine={false} axisLine={false} minTickGap={30} />
+                    <YAxis hide domain={[(dataMin: number) => dataMin - 0.2, (dataMax: number) => dataMax + 0.2]} />
+                    <Tooltip content={(props: any) => <MinimalTooltip {...props} unit="kg" />} />
+                    <Line type="monotone" dataKey="weight" stroke="#22d3ee" strokeWidth={2.8} dot={{ r: 3.5, fill: '#22d3ee' }} connectNulls />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </section>
 
         </div>
       ) : (
@@ -874,27 +1103,50 @@ export default function Health({ dailyMetrics = [], activities = [], onSelectAct
         </div>
       )}
 
-      {/* FOOTER GARMIN SYNC BUTTON WITH DATE SELECTOR */}
-      {onSyncGarmin && (
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-6 pb-2">
-          <div className="flex items-center gap-2 bg-[var(--surface-popover)] border border-subtle px-3.5 py-2.5 rounded-xl text-xs font-mono shadow-sm">
-            <span className="text-muted font-bold">Data da sincronizzare:</span>
-            <input
-              type="date"
-              value={syncTargetDate}
-              onChange={(e) => setSyncTargetDate(e.target.value)}
-              className="bg-transparent text-primary font-mono focus:outline-none cursor-pointer"
-            />
-          </div>
-          <button
-            onClick={() => onSyncGarmin(syncTargetDate || currentMetrics?.date)}
-            className="px-6 py-3 bg-[var(--surface-popover)] border border-subtle hover:bg-[var(--surface-inset)] text-primary rounded-xl text-xs font-bold transition-all flex items-center gap-2.5 cursor-pointer shadow-md"
-          >
-            <Activity className="w-4 h-4 text-[#CCFF00]" />
-            <span>Sincronizza Garmin</span>
-          </button>
-        </div>
-      )}
+      {/* FOOTER GARMIN SYNC BUTTON & LOCATION WITH DATE SELECTOR */}
+      <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-6 pb-2">
+        <button
+          onClick={() => setIsLocationModalOpen(true)}
+          className="px-4 py-2.5 bg-[var(--surface-popover)] border border-subtle hover:bg-[var(--surface-inset)] text-secondary hover:text-primary rounded-xl text-xs font-bold transition-all flex items-center gap-2 shadow-sm cursor-pointer"
+          title="Gestisci Posizione / Meteo"
+        >
+          <MapPin className="w-4 h-4 text-amber-400" />
+          <span>Posizione Meteo</span>
+        </button>
+        {onSyncGarmin && (
+          <>
+            <div className="flex items-center gap-2 bg-[var(--surface-popover)] border border-subtle px-3.5 py-2.5 rounded-xl text-xs font-mono shadow-sm">
+              <span className="text-muted font-bold">Data da sincronizzare:</span>
+              <input
+                type="date"
+                value={syncTargetDate}
+                onChange={(e) => setSyncTargetDate(e.target.value)}
+                className="bg-transparent text-primary font-mono focus:outline-none cursor-pointer"
+              />
+            </div>
+            <button
+              onClick={async () => {
+                if (isSyncing) return;
+                setIsSyncing(true);
+                try {
+                  await onSyncGarmin(syncTargetDate || currentMetrics?.date);
+                } finally {
+                  setIsSyncing(false);
+                }
+              }}
+              disabled={isSyncing}
+              className={`px-6 py-3 bg-[var(--surface-popover)] border border-subtle hover:bg-[var(--surface-inset)] text-primary rounded-xl text-xs font-bold transition-all flex items-center gap-2.5 shadow-md ${isSyncing ? 'opacity-60 cursor-wait' : 'cursor-pointer'}`}
+            >
+              {isSyncing ? (
+                <Loader2 className="w-4 h-4 text-[#CCFF00] animate-spin" />
+              ) : (
+                <Activity className="w-4 h-4 text-[#CCFF00]" />
+              )}
+              <span>{isSyncing ? 'Sincronizzazione in corso...' : 'Sincronizza Garmin'}</span>
+            </button>
+          </>
+        )}
+      </div>
 
       {/* LOCATION OVERRIDES ADMIN MODAL */}
       {isLocationModalOpen && (

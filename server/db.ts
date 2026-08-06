@@ -427,3 +427,36 @@ export async function saveDailyMetrics(metrics: DailyMetrics[]): Promise<void> {
     console.error('Error saving daily metrics to Supabase:', error);
   }
 }
+
+export async function getDailyHealthAnalysis(date: string): Promise<any | null> {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('daily_health_analysis')
+      .select('*')
+      .eq('date', date)
+      .maybeSingle();
+
+    if (error) {
+      console.warn('Supabase fetch error for daily_health_analysis:', error.message);
+      return null;
+    }
+    return data;
+  } catch (error) {
+    console.error('Error fetching daily health analysis from Supabase:', error);
+    return null;
+  }
+}
+
+export async function saveDailyHealthAnalysis(analysis: any): Promise<void> {
+  try {
+    const { error } = await supabaseAdmin
+      .from('daily_health_analysis')
+      .upsert(analysis, { onConflict: 'date' });
+
+    if (error) {
+      console.warn('Supabase save error for daily_health_analysis:', error.message);
+    }
+  } catch (error) {
+    console.error('Error saving daily health analysis to Supabase:', error);
+  }
+}

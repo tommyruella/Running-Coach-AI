@@ -26,7 +26,9 @@ import {
   getCoachSettings,
   saveCoachSettings,
   getWeeklyPlans,
-  saveWeeklyPlans
+  saveWeeklyPlans,
+  getDailyHealthAnalysis,
+  saveDailyHealthAnalysis
 } from './server/db.js';
 import { supabaseAdmin } from './server/supabaseClient.js';
 import { ChatMessage, Activity } from './src/types.js';
@@ -65,6 +67,31 @@ Conosci a fondo concetti come Soglia Anaerobica (Lactate Threshold), VO2Max, bat
 
 Rispondi sempre in italiano usando un tono incoraggiante e professionale.
 Quando l'utente ti chiede un piano settimanale (scrivendo parole chiave come "piano", "settimana", "programma", "allenamento"), rispondi SEMPRE strutturando un piano chiaro di 7 giorni inserito all'interno di una tabella markdown. Includi distanze indicative, zone cardio consigliate e lo scopo di ogni allenamento (es. Fondo Lento, Ripetute, Progressivo, Recupero).`;
+
+/**
+ * API: Get & Save Health Section Analysis (Supabase Caching)
+ */
+app.get('/api/health-analysis', async (req, res) => {
+  try {
+    const date = req.query.date as string;
+    if (!date) return res.status(400).json({ error: 'Data non specificata' });
+    const analysis = await getDailyHealthAnalysis(date);
+    res.json({ analysis: analysis || null });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/health-analysis', async (req, res) => {
+  try {
+    const { analysis } = req.body;
+    if (!analysis || !analysis.date) return res.status(400).json({ error: 'Dati di analisi non validi' });
+    await saveDailyHealthAnalysis(analysis);
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 /**
  * 1. API: Get Stats
