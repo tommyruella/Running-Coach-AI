@@ -492,9 +492,20 @@ export default function Health({ dailyMetrics = [], activities = [], onSelectAct
   };
 
   const CustomSleepLabel = (props: any) => {
-    const { x, y, value, stroke, dataKey } = props;
+    const { x, y, value, stroke, dataKey, index } = props;
     if (value === undefined || value === null) return null;
-    const dy = dataKey === 'Ideale' ? -12 : 20;
+    
+    const dataObj = sleepVsTargetData[index];
+    const ideale = dataObj?.Ideale ?? 0;
+    const reale = dataObj?.Reale ?? 0;
+    
+    let dy = 0;
+    if (dataKey === 'Reale') {
+      dy = reale >= ideale ? -12 : 20;
+    } else if (dataKey === 'Ideale') {
+      dy = ideale > reale ? -12 : 20;
+    }
+
     return (
       <text x={x} y={y} dy={dy} fill={stroke} fontSize={10} fontWeight="bold" textAnchor="middle" style={{ pointerEvents: 'none' }}>
         {formatHoursToHMM(value)}
