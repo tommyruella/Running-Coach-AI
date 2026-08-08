@@ -402,7 +402,8 @@ export default function Health({ dailyMetrics = [], activities = [], onSelectAct
 
     return weekMetrics.map(m => {
       const d = new Date(m.date);
-      const dayName = d.toLocaleDateString('it-IT', { weekday: 'short' });
+      const dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
+      const dateNum = d.getDate();
       
       const actualHours = m.sleep_duration ? m.sleep_duration / 60 : 0;
       
@@ -419,10 +420,11 @@ export default function Health({ dailyMetrics = [], activities = [], onSelectAct
       const targetHours = targetMins / 60;
 
       return {
-        day: dayName.toUpperCase(),
-        Ideale: Number(targetHours.toFixed(1)),
-        Reale: Number(actualHours.toFixed(1)),
-        date: m.date
+        dayName: dayName,
+        dateNum: dateNum,
+        Ideale: targetHours,
+        Reale: actualHours,
+        fullDate: m.date
       };
     });
   }, [dailyMetrics, currentMetrics?.date]);
@@ -472,6 +474,53 @@ export default function Health({ dailyMetrics = [], activities = [], onSelectAct
   const getDayLabel = (dateStr: string) => {
     const d = new Date(dateStr);
     return `${d.getDate()} ${d.toLocaleDateString('it-IT', { month: 'short' }).replace('.', '').toUpperCase()}`;
+  };
+
+  // Custom components for Sleep Whoop-style Chart
+  const formatHoursToHMM = (val: number) => {
+    const h = Math.floor(val);
+    const m = Math.round((val - h) * 60);
+    return `${h}:${m.toString().padStart(2, '0')}`;
+  };
+
+  const CustomSleepDot = (props: any) => {
+    const { cx, cy, stroke, value } = props;
+    if (value === undefined || value === null) return null;
+    return (
+      <circle cx={cx} cy={cy} r={4} stroke={stroke} strokeWidth={2} fill="var(--surface-card)" />
+    );
+  };
+
+  const CustomSleepLabel = (props: any) => {
+    const { x, y, value, stroke, dataKey } = props;
+    if (value === undefined || value === null) return null;
+    const dy = dataKey === 'Ideale' ? -12 : 20;
+    return (
+      <text x={x} y={y} dy={dy} fill={stroke} fontSize={10} fontWeight="bold" textAnchor="middle" style={{ pointerEvents: 'none' }}>
+        {formatHoursToHMM(value)}
+      </text>
+    );
+  };
+
+  const CustomXAxisTick = (props: any) => {
+    const { x, y, payload } = props;
+    const dataObj = sleepVsTargetData[payload.index];
+    if (!dataObj) return null;
+    const isSelected = dataObj.fullDate === currentMetrics?.date?.split('T')[0];
+
+    return (
+      <g transform={`translate(${x},${y})`}>
+        {isSelected && (
+          <rect x={-20} y={-10} width={40} height={40} fill="var(--surface-inset)" rx={4} />
+        )}
+        <text x={0} y={4} dy={0} textAnchor="middle" fill="var(--text-muted)" fontSize={10}>
+          {dataObj.dayName}
+        </text>
+        <text x={0} y={18} dy={0} textAnchor="middle" fill={isSelected ? "var(--primary)" : "var(--text-muted)"} fontSize={10} fontWeight={isSelected ? "bold" : "normal"}>
+          {dataObj.dateNum}
+        </text>
+      </g>
+    );
   };
 
   return (
@@ -642,35 +691,62 @@ export default function Health({ dailyMetrics = [], activities = [], onSelectAct
             {/* Sleep vs Target Chart */}
             {sleepVsTargetData.length > 0 && (
               <div className="mt-8 border-t border-[var(--border-subtle)] pt-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h4 className="text-xs font-bold text-primary uppercase tracking-widest">Bilancio Settimanale</h4>
+                <div className="flex items-center justify-between mb-6">
+                  <h4 className="text-xs font-bold text-secondary uppercase tracking-widest">Hours Vs. Needed (Hours)</h4>
                   <div className="flex gap-4">
                     <div className="flex items-center gap-1.5">
-                      <div className="w-2 h-2 rounded-full bg-[var(--text-muted)] opacity-50" />
-                      <span className="text-[10px] uppercase tracking-widest text-secondary font-bold">Ideale</span>
+                      <div className="w-2.5 h-2.5 rounded-full border-2 border-[#64748b] bg-transparent" />
+                      <span className="text-[10px] uppercase tracking-widest text-primary font-bold">Hours of Sleep</span>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <div className="w-2 h-2 rounded-full bg-[#3b82f6]" />
-                      <span className="text-[10px] uppercase tracking-widest text-primary font-bold">Reale</span>
+                      <div className="w-2.5 h-2.5 rounded-full border-2 border-[#10b981] bg-transparent" />
+                      <span className="text-[10px] uppercase tracking-widest text-primary font-bold">Sleep Needed</span>
                     </div>
                   </div>
                 </div>
-                <div className="h-[140px] w-full">
+                <div className="h-[220px] w-full relative">
+                  {/* Highlight current day column background */}
+                  {(() => {
+                     const selectedIdx = sleepVsTargetData.findIndex(d => d.fullDate === currentMetrics?.date?.split('T')[0]);
+                     if (selectedIdx !== -1) {
+                        const colWidth = 100 / Math.max(sleepVsTargetData.length - 1, 1);
+                        const leftPct = (selectedIdx * colWidth);
+                        return (
+                          <div 
+                            className="absolute top-0 bottom-0 bg-[var(--surface-inset)] opacity-50 rounded-t-md pointer-events-none"
+                            style={{ 
+                              left: `calc(${leftPct}% - 20px)`, 
+                              width: '40px' 
+                            }}
+                          />
+                        );
+                     }
+                     return null;
+                  })()}
                   <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart data={sleepVsTargetData} margin={{ top: 10, right: 0, left: -25, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-subtle)" opacity={0.5} />
-                      <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} dy={10} />
-                      <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} tickFormatter={(val) => `${val}h`} />
-                      <Tooltip 
-                        contentStyle={{ backgroundColor: 'var(--surface-card)', borderRadius: '8px', border: '1px solid var(--border-subtle)', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                        itemStyle={{ fontSize: '12px', fontWeight: 'bold' }}
-                        labelStyle={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '4px' }}
-                        cursor={{ fill: 'var(--surface-inset)' }}
-                        formatter={(value: number) => [`${value}h`, '']}
+                    <ComposedChart data={sleepVsTargetData} margin={{ top: 20, right: 20, left: -20, bottom: 20 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-subtle)" opacity={0.3} />
+                      <XAxis axisLine={false} tickLine={false} tick={<CustomXAxisTick />} />
+                      <YAxis hide domain={['dataMin - 1', 'dataMax + 1']} />
+                      
+                      <Line 
+                        type="monotone" 
+                        dataKey="Ideale" 
+                        stroke="#10b981" 
+                        strokeWidth={2} 
+                        dot={<CustomSleepDot stroke="#10b981" />} 
+                        activeDot={{ r: 5, fill: "#10b981", stroke: "var(--surface-card)", strokeWidth: 2 }} 
+                        label={<CustomSleepLabel stroke="#10b981" dataKey="Ideale" />}
                       />
-                      {/* Target as a subtle background Area/Bar or Line? A line looks cleaner for 'target' */}
-                      <Bar dataKey="Reale" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={12} />
-                      <Line type="monotone" dataKey="Ideale" stroke="var(--text-muted)" strokeWidth={2} strokeDasharray="4 4" dot={false} activeDot={{ r: 4, fill: 'var(--text-muted)' }} />
+                      <Line 
+                        type="monotone" 
+                        dataKey="Reale" 
+                        stroke="#64748b" 
+                        strokeWidth={2} 
+                        dot={<CustomSleepDot stroke="#64748b" />} 
+                        activeDot={{ r: 5, fill: "#64748b", stroke: "var(--surface-card)", strokeWidth: 2 }} 
+                        label={<CustomSleepLabel stroke="#64748b" dataKey="Reale" />}
+                      />
                     </ComposedChart>
                   </ResponsiveContainer>
                 </div>
