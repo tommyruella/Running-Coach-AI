@@ -692,15 +692,15 @@ export default function Health({ dailyMetrics = [], activities = [], onSelectAct
             {sleepVsTargetData.length > 0 && (
               <div className="mt-8 border-t border-[var(--border-subtle)] pt-6">
                 <div className="flex items-center justify-between mb-6">
-                  <h4 className="text-xs font-bold text-secondary uppercase tracking-widest">Hours Vs. Needed (Hours)</h4>
+                  <h4 className="text-xs font-bold text-primary uppercase tracking-widest">Bilancio Settimanale</h4>
                   <div className="flex gap-4">
                     <div className="flex items-center gap-1.5">
-                      <div className="w-2.5 h-2.5 rounded-full border-2 border-[#64748b] bg-transparent" />
-                      <span className="text-[10px] uppercase tracking-widest text-primary font-bold">Hours of Sleep</span>
+                      <div className="w-2.5 h-2.5 rounded-full border-2 border-[#3b82f6] bg-transparent" />
+                      <span className="text-[10px] uppercase tracking-widest text-primary font-bold">Ore Dormite</span>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <div className="w-2.5 h-2.5 rounded-full border-2 border-[#10b981] bg-transparent" />
-                      <span className="text-[10px] uppercase tracking-widest text-primary font-bold">Sleep Needed</span>
+                      <div className="w-2.5 h-2.5 rounded-full border-2 border-[#64748b] bg-transparent" />
+                      <span className="text-[10px] uppercase tracking-widest text-primary font-bold">Fabbisogno</span>
                     </div>
                   </div>
                 </div>
@@ -731,21 +731,22 @@ export default function Health({ dailyMetrics = [], activities = [], onSelectAct
                       
                       <Line 
                         type="monotone" 
-                        dataKey="Ideale" 
-                        stroke="#10b981" 
+                        dataKey="Reale" 
+                        stroke="#3b82f6" 
                         strokeWidth={2} 
-                        dot={<CustomSleepDot stroke="#10b981" />} 
-                        activeDot={{ r: 5, fill: "#10b981", stroke: "var(--surface-card)", strokeWidth: 2 }} 
-                        label={<CustomSleepLabel stroke="#10b981" dataKey="Ideale" />}
+                        dot={<CustomSleepDot stroke="#3b82f6" />} 
+                        activeDot={{ r: 5, fill: "#3b82f6", stroke: "var(--surface-card)", strokeWidth: 2 }} 
+                        label={<CustomSleepLabel stroke="#3b82f6" dataKey="Reale" />}
                       />
                       <Line 
                         type="monotone" 
-                        dataKey="Reale" 
+                        dataKey="Ideale" 
                         stroke="#64748b" 
                         strokeWidth={2} 
+                        strokeDasharray="4 4"
                         dot={<CustomSleepDot stroke="#64748b" />} 
                         activeDot={{ r: 5, fill: "#64748b", stroke: "var(--surface-card)", strokeWidth: 2 }} 
-                        label={<CustomSleepLabel stroke="#64748b" dataKey="Reale" />}
+                        label={<CustomSleepLabel stroke="#64748b" dataKey="Ideale" />}
                       />
                     </ComposedChart>
                   </ResponsiveContainer>
