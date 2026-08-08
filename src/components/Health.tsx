@@ -8,7 +8,7 @@ import {
   Tooltip,
   CartesianGrid,
   LineChart, Line, AreaChart, Area,
-  ComposedChart
+  ComposedChart, Legend
 } from 'recharts';
 import { MinimalTooltip } from './Dashboard';
 
@@ -386,6 +386,47 @@ export default function Health({ dailyMetrics = [], activities = [], onSelectAct
     return generateHealthSectionAnalysis(currentMetrics, dailyMetrics);
   }, [currentMetrics, dailyMetrics, dbCachedAnalyses]);
 
+  const sleepVsTargetData = useMemo(() => {
+    if (!dailyMetrics || dailyMetrics.length === 0 || !currentMetrics?.date) return [];
+
+    const targetDateObj = new Date(currentMetrics.date);
+    // Find the previous 6 days + current day (7 days total) ending on currentDate
+    const startObj = new Date(targetDateObj);
+    startObj.setDate(startObj.getDate() - 6);
+    const startStr = startObj.toISOString().split('T')[0];
+    const endStr = targetDateObj.toISOString().split('T')[0];
+
+    const weekMetrics = [...dailyMetrics]
+      .filter(m => m.date >= startStr && m.date <= endStr)
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    return weekMetrics.map(m => {
+      const d = new Date(m.date);
+      const dayName = d.toLocaleDateString('it-IT', { weekday: 'short' });
+      
+      const actualHours = m.sleep_duration ? m.sleep_duration / 60 : 0;
+      
+      // Target sleep logic
+      // Base: 8h (480 mins)
+      let targetMins = 480;
+      // Add based on active calories (e.g. 15 mins for every 500 kcal)
+      if (m.calories_active) targetMins += (m.calories_active / 500) * 15;
+      // Add based on distance (e.g. 10 mins for every 10 km) -> actually 1 min per km
+      if (m.distance_m) targetMins += (m.distance_m / 1000) * 1;
+      // Add based on stress (e.g. +0.5 mins for every point over 50)
+      if (m.stress_level && m.stress_level > 50) targetMins += (m.stress_level - 50) * 0.5;
+
+      const targetHours = targetMins / 60;
+
+      return {
+        day: dayName.toUpperCase(),
+        Ideale: Number(targetHours.toFixed(1)),
+        Reale: Number(actualHours.toFixed(1)),
+        date: m.date
+      };
+    });
+  }, [dailyMetrics, currentMetrics?.date]);
+
   // NEW ULTRA MINIMAL CAPSULE (No borders, pure typography)
     const getReadinessColor = (val?: number) => {
     if (!val) return 'var(--color-primary)';
@@ -597,7 +638,45 @@ export default function Health({ dailyMetrics = [], activities = [], onSelectAct
               })() : null}
             </div>
 
-            {/* AI Insight */}
+            
+            {/* Sleep vs Target Chart */}
+            {sleepVsTargetData.length > 0 && (
+              <div className="mt-8 border-t border-[var(--border-subtle)] pt-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h4 className="text-xs font-bold text-primary uppercase tracking-widest">Bilancio Settimanale</h4>
+                  <div className="flex gap-4">
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-2 h-2 rounded-full bg-[var(--text-muted)] opacity-50" />
+                      <span className="text-[10px] uppercase tracking-widest text-secondary font-bold">Ideale</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-2 h-2 rounded-full bg-[#3b82f6]" />
+                      <span className="text-[10px] uppercase tracking-widest text-primary font-bold">Reale</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="h-[140px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <ComposedChart data={sleepVsTargetData} margin={{ top: 10, right: 0, left: -25, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-subtle)" opacity={0.5} />
+                      <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} dy={10} />
+                      <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} tickFormatter={(val) => `${val}h`} />
+                      <Tooltip 
+                        contentStyle={{ backgroundColor: 'var(--surface-card)', borderRadius: '8px', border: '1px solid var(--border-subtle)', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                        itemStyle={{ fontSize: '12px', fontWeight: 'bold' }}
+                        labelStyle={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '4px' }}
+                        cursor={{ fill: 'var(--surface-inset)' }}
+                        formatter={(value: number) => [`${value}h`, '']}
+                      />
+                      {/* Target as a subtle background Area/Bar or Line? A line looks cleaner for 'target' */}
+                      <Bar dataKey="Reale" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={12} />
+                      <Line type="monotone" dataKey="Ideale" stroke="var(--text-muted)" strokeWidth={2} strokeDasharray="4 4" dot={false} activeDot={{ r: 4, fill: 'var(--text-muted)' }} />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            )}
+{/* AI Insight */}
             <div className="w-full">
               <AiInsightAccordion analysis={sectionAnalyses?.sleep} title="Insight Sonno" />
             </div>
