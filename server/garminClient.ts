@@ -167,8 +167,17 @@ export async function syncGarminMetrics(email: string, password: string, dateObj
     }
 
     // Timeline array (Hypnogram)
-    if (sleepData && (sleepData as any).sleepLevels) {
-      metrics.sleep_timeline = (sleepData as any).sleepLevels;
+    if (sleepData) {
+      metrics.sleep_timeline = 
+        (sleepData as any).sleepLevels || 
+        (sleepData as any).dailySleepDTO?.sleepLevels || 
+        (sleepData as any).sleepMovement || 
+        (sleepData as any).dailySleepDTO?.sleepMovement || 
+        null;
+        
+      if (metrics.sleep_timeline && metrics.sleep_timeline.length === 0) {
+        metrics.sleep_timeline = null; // nullify if empty
+      }
     }
 
   if (stepsData != null) {
@@ -178,6 +187,23 @@ export async function syncGarminMetrics(email: string, password: string, dateObj
       metrics.steps = (stepsData as any).totalSteps;
     } else if (Array.isArray(stepsData)) {
       metrics.steps = stepsData.reduce((s: number, i: any) => s + (i.steps || i[1] || 0), 0);
+      metrics.steps_timeline = stepsData
+        .map((entry: any) => {
+          let ts = entry[0] || entry.timestamp || entry.startGMT;
+          let steps = entry[1] || entry.steps || 0;
+          
+          if (Array.isArray(entry)) {
+            ts = entry[0];
+            steps = entry[1];
+          }
+          if (!ts) return null;
+          
+          return {
+            time: new Date(ts).toISOString(),
+            steps: steps
+          };
+        })
+        .filter((m: any) => m != null && m.steps > 0);
     }
   }
 

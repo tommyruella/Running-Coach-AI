@@ -417,7 +417,7 @@ export async function saveDailyMetrics(metrics: DailyMetrics[]): Promise<void> {
 
     if (error) {
       console.warn('Salvataggio completo fallito (probabile colonna hr_timeline mancante), eseguo fallback senza hr_timeline:', error.message);
-      const safeMetrics = metrics.map(({ hr_timeline, ...rest }) => rest);
+      const safeMetrics = metrics.map(({ hr_timeline, steps_timeline, ...rest }) => rest as any);
       const { error: fallbackError } = await supabaseAdmin
         .from('daily_metrics')
         .upsert(safeMetrics, { onConflict: 'date' });

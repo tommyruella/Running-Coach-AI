@@ -31,3 +31,4 @@ ALTER TABLE daily_metrics ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Enable read access for all users" ON daily_metrics FOR SELECT USING (true);
 CREATE POLICY "Enable insert for all users" ON daily_metrics FOR INSERT WITH CHECK (true);
 CREATE POLICY "Enable update for all users" ON daily_metrics FOR UPDATE USING (true) WITH CHECK (true);
+ALTER TABLE daily_metrics ADD COLUMN steps_timeline JSONB;
