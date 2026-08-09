@@ -896,10 +896,9 @@ export default function Health({ dailyMetrics = [], activities = [], onSelectAct
 
             </div>
 
-            {/* AI Insights (Attivita + Corpo) */}
+            {/* AI Insights (Attivita) */}
             <div className="w-full space-y-2 pt-2">
               <AiInsightAccordion analysis={sectionAnalyses?.activity} title="Insight Attività" />
-              <AiInsightAccordion analysis={sectionAnalyses?.body} title="Insight Corpo" />
             </div>
           </section>
 
