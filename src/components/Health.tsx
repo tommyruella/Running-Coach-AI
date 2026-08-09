@@ -3,7 +3,7 @@ import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { ChevronLeft, ChevronRight, MapPin, X, Loader2, ChevronDown, ChevronUp, Sparkles } from 'lucide-react';
 import {
   ResponsiveContainer,
-  BarChart, Bar,
+  BarChart, Bar, Cell, LabelList,
   XAxis, YAxis,
   Tooltip,
   CartesianGrid,
@@ -429,6 +429,7 @@ export default function Health({ dailyMetrics = [], activities = [], onSelectAct
         dateNum: dateNum,
         Ideale: targetHours,
         Reale: actualHours,
+        Score: m.sleep_score || 0,
         fullDate: m.date
       };
     });
@@ -707,6 +708,36 @@ export default function Health({ dailyMetrics = [], activities = [], onSelectAct
             {/* Sleep vs Target Chart */}
             {sleepVsTargetData.length > 0 && (
               <div className="mt-8 border-t border-[var(--border-subtle)] pt-6">
+                {/* Weekly Sleep Score Bar Chart */}
+                <div className="mb-8">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-xs font-bold text-primary uppercase tracking-widest">Score Sonno Settimanale</h4>
+                    <div className="text-[11px] font-mono text-secondary">
+                      Media: <span className="font-bold text-primary">{Math.round(sleepVsTargetData.reduce((acc, curr) => acc + (curr.Score || 0), 0) / (sleepVsTargetData.filter(d => d.Score > 0).length || 1))}</span>/100
+                    </div>
+                  </div>
+                  <div className="h-[95px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={sleepVsTargetData} margin={{ top: 18, right: 10, left: 10, bottom: 0 }}>
+                        <XAxis dataKey="dayName" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 10 }} />
+                        <YAxis hide domain={[0, 100]} />
+                        <Bar dataKey="Score" radius={[4, 4, 0, 0]} maxBarSize={24}>
+                          {sleepVsTargetData.map((entry, index) => {
+                            const isSelected = entry.fullDate === currentMetrics?.date?.split('T')[0];
+                            let color = '#3b82f6';
+                            if (entry.Score >= 80) color = '#32D74B';
+                            else if (entry.Score >= 60) color = '#FF9F0A';
+                            else if (entry.Score > 0) color = '#FF453A';
+                            else color = 'var(--border-subtle)';
+                            return <Cell key={`cell-${index}`} fill={color} opacity={isSelected ? 1 : 0.45} />;
+                          })}
+                          <LabelList dataKey="Score" position="top" formatter={(val: any) => val > 0 ? val : ''} style={{ fill: 'var(--text-primary)', fontSize: 10, fontWeight: 'bold' }} />
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
                 <div className="flex items-center justify-between mb-6">
                   <h4 className="text-xs font-bold text-primary uppercase tracking-widest">Bilancio Settimanale</h4>
                   <div className="flex gap-4">
