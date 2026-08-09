@@ -410,10 +410,15 @@ export default function Health({ dailyMetrics = [], activities = [], onSelectAct
       // Target sleep logic (dynamic based on strain)
       // Base: 7.5h (450 mins)
       let targetMins = 450;
+      
+      // Calculate derived metrics if Garmin API returned 0
+      const activeCals = m.calories_active || (m.steps ? m.steps * 0.04 : 0);
+      const distance = m.distance_m || (m.steps ? m.steps * 0.75 : 0);
+      
       // Add based on active calories (e.g. +30 mins for every 500 kcal active)
-      if (m.calories_active) targetMins += (m.calories_active / 500) * 30;
+      if (activeCals > 0) targetMins += (activeCals / 500) * 30;
       // Add based on distance (e.g. +5 mins per km walked/ran)
-      if (m.distance_m) targetMins += (m.distance_m / 1000) * 5;
+      if (distance > 0) targetMins += (distance / 1000) * 5;
       // Add based on stress (e.g. +1 min for every point over 25)
       if (m.stress_level && m.stress_level > 25) targetMins += (m.stress_level - 25) * 1;
 
