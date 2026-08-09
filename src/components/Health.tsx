@@ -389,50 +389,66 @@ export default function Health({ dailyMetrics = [], activities = [], onSelectAct
   const sleepVsTargetData = useMemo(() => {
     if (!dailyMetrics || dailyMetrics.length === 0 || !currentMetrics?.date) return [];
 
-    const targetDateObj = new Date(currentMetrics.date);
-    // Find the previous 6 days + current day (7 days total) ending on currentDate
-    const startObj = new Date(targetDateObj);
-    startObj.setDate(startObj.getDate() - 6);
-    const startStr = startObj.toISOString().split('T')[0];
-    const endStr = targetDateObj.toISOString().split('T')[0];
+    const selectedDateStr = currentMetrics.date.split('T')[0];
+    const [year, month, day] = selectedDateStr.split('-').map(Number);
+    const targetDateObj = new Date(year, month - 1, day);
+    
+    // Find Monday of the current week (Sunday = 0, Monday = 1)
+    const dayOfWeek = targetDateObj.getDay();
+    const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    
+    const mondayObj = new Date(targetDateObj);
+    mondayObj.setDate(targetDateObj.getDate() + diffToMonday);
 
-    const weekMetrics = [...dailyMetrics]
-      .filter(m => m.date >= startStr && m.date <= endStr)
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const result = [];
+    for (let i = 0; i < 7; i++) {
+      const currentDay = new Date(mondayObj);
+      currentDay.setDate(mondayObj.getDate() + i);
+      
+      const y = currentDay.getFullYear();
+      const mStr = String(currentDay.getMonth() + 1).padStart(2, '0');
+      const dStr = String(currentDay.getDate()).padStart(2, '0');
+      const dateStr = `${y}-${mStr}-${dStr}`;
 
-    return weekMetrics.map(m => {
-      const d = new Date(m.date);
-      const dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
-      const dateNum = d.getDate();
+      const dayName = currentDay.toLocaleDateString('en-US', { weekday: 'short' });
+      const dateNum = currentDay.getDate();
       
-      const actualHours = m.sleep_duration ? m.sleep_duration / 60 : 0;
+      const m = dailyMetrics.find(metric => metric.date === dateStr || metric.date?.startsWith(dateStr));
       
-      // Target sleep logic (dynamic based on strain)
-      // Base: 7.5h (450 mins)
-      let targetMins = 450;
-      
-      // Calculate derived metrics if Garmin API returned 0
-      const activeCals = m.calories_active || (m.steps ? m.steps * 0.04 : 0);
-      const distance = m.distance_m || (m.steps ? m.steps * 0.75 : 0);
-      
-      // Add based on active calories (e.g. +30 mins for every 500 kcal active)
-      if (activeCals > 0) targetMins += (activeCals / 500) * 30;
-      // Add based on distance (e.g. +5 mins per km walked/ran)
-      if (distance > 0) targetMins += (distance / 1000) * 5;
-      // Add based on stress (e.g. +1 min for every point over 25)
-      if (m.stress_level && m.stress_level > 25) targetMins += (m.stress_level - 25) * 1;
+      if (m) {
+        const actualHours = m.sleep_duration ? m.sleep_duration / 60 : null;
+        
+        let targetMins = 450;
+        const activeCals = m.calories_active || (m.steps ? m.steps * 0.04 : 0);
+        const distance = m.distance_m || (m.steps ? m.steps * 0.75 : 0);
+        
+        if (activeCals > 0) targetMins += (activeCals / 500) * 30;
+        if (distance > 0) targetMins += (distance / 1000) * 5;
+        if (m.stress_level && m.stress_level > 25) targetMins += (m.stress_level - 25) * 1;
 
-      const targetHours = targetMins / 60;
+        const targetHours = targetMins / 60;
 
-      return {
-        dayName: dayName,
-        dateNum: dateNum,
-        Ideale: targetHours,
-        Reale: actualHours,
-        Score: m.sleep_score || 0,
-        fullDate: m.date
-      };
-    });
+        result.push({
+          dayName,
+          dateNum,
+          Ideale: targetHours,
+          Reale: actualHours,
+          Score: m.sleep_score || null,
+          fullDate: dateStr
+        });
+      } else {
+        result.push({
+          dayName,
+          dateNum,
+          Ideale: null,
+          Reale: null,
+          Score: null,
+          fullDate: dateStr
+        });
+      }
+    }
+
+    return result;
   }, [dailyMetrics, currentMetrics?.date]);
 
   // NEW ULTRA MINIMAL CAPSULE (No borders, pure typography)
@@ -725,10 +741,10 @@ export default function Health({ dailyMetrics = [], activities = [], onSelectAct
                           {sleepVsTargetData.map((entry, index) => {
                             const isSelected = entry.fullDate === currentMetrics?.date?.split('T')[0];
                             let color = 'var(--border-subtle)';
-                            if (entry.Score >= 90) color = '#3b82f6';
-                            else if (entry.Score >= 80) color = '#60a5fa';
-                            else if (entry.Score >= 60) color = '#d946ef';
-                            else if (entry.Score > 0) color = '#ec4899';
+                            if (entry.Score && entry.Score >= 90) color = '#3b82f6';
+                            else if (entry.Score && entry.Score >= 80) color = '#60a5fa';
+                            else if (entry.Score && entry.Score >= 60) color = '#d946ef';
+                            else if (entry.Score && entry.Score > 0) color = '#ec4899';
                             return <Cell key={`cell-${index}`} fill={color} opacity={isSelected ? 1 : 0.65} />;
                           })}
                           <LabelList dataKey="Score" position="top" formatter={(val: any) => val > 0 ? val : ''} style={{ fill: 'var(--text-primary)', fontSize: 11, fontWeight: 'bold' }} />
