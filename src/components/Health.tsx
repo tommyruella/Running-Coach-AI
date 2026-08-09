@@ -741,7 +741,7 @@ export default function Health({ dailyMetrics = [], activities = [], onSelectAct
                       <YAxis hide domain={['dataMin - 1', 'dataMax + 1']} />
                       
                       <Line 
-                        type="monotone" 
+                        type="natural" 
                         dataKey="Reale" 
                         stroke="#3b82f6" 
                         strokeWidth={2} 
@@ -750,7 +750,7 @@ export default function Health({ dailyMetrics = [], activities = [], onSelectAct
                         label={<CustomSleepLabel stroke="#3b82f6" dataKey="Reale" />}
                       />
                       <Line 
-                        type="monotone" 
+                        type="natural" 
                         dataKey="Ideale" 
                         stroke="#64748b" 
                         strokeWidth={2} 
@@ -784,7 +784,7 @@ export default function Health({ dailyMetrics = [], activities = [], onSelectAct
                       <LineChart data={currentMetrics.hr_timeline.map((h: any) => ({ time: new Date(h.time).getTime(), hr: h.hr }))}>
                         <YAxis hide domain={['dataMin', 'dataMax']} />
                         <Tooltip content={(props: any) => <MinimalTooltip {...props} unit="bpm" />} />
-                        <Line type="monotone" dataKey="hr" stroke="var(--accent-rose)" strokeWidth={1.5} dot={false} activeDot={{ r: 4, fill: 'var(--accent-rose)' }} connectNulls />
+                        <Line type="natural" dataKey="hr" stroke="var(--accent-rose)" strokeWidth={1.5} dot={false} activeDot={{ r: 4, fill: 'var(--accent-rose)' }} connectNulls />
                       </LineChart>
                     </ResponsiveContainer>
                   ) : (
@@ -814,9 +814,9 @@ export default function Health({ dailyMetrics = [], activities = [], onSelectAct
                       <Tooltip content={(props: any) => <MinimalTooltip {...props} />} />
                       <Bar yAxisId="left" dataKey="sleep" fill="var(--accent-blue)" radius={[2, 2, 0, 0]} maxBarSize={16} />
                       {correlationType === 'rhr' ? (
-                        <Line yAxisId="right" type="monotone" dataKey="rhr" stroke="var(--accent-rose)" strokeWidth={2} dot={{ r: 2, fill: 'var(--accent-rose)' }} connectNulls />
+                        <Line yAxisId="right" type="natural" dataKey="rhr" stroke="var(--accent-rose)" strokeWidth={2} dot={{ r: 2, fill: 'var(--accent-rose)' }} connectNulls />
                       ) : (
-                        <Line yAxisId="right" type="monotone" dataKey="stress" stroke="var(--accent-amber)" strokeWidth={2} dot={{ r: 2, fill: 'var(--accent-amber)' }} connectNulls />
+                        <Line yAxisId="right" type="natural" dataKey="stress" stroke="var(--accent-amber)" strokeWidth={2} dot={{ r: 2, fill: 'var(--accent-amber)' }} connectNulls />
                       )}
                     </ComposedChart>
                   </ResponsiveContainer>
@@ -877,7 +877,7 @@ export default function Health({ dailyMetrics = [], activities = [], onSelectAct
                         <YAxis domain={['dataMin - 1', 'dataMax + 1']} hide={true} />
                         <Tooltip content={<MinimalTooltip />} />
                         <Line 
-                          type="monotone" 
+                          type="natural" 
                           dataKey="peso" 
                           stroke="#0ea5e9" 
                           strokeWidth={2}
