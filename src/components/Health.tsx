@@ -407,15 +407,15 @@ export default function Health({ dailyMetrics = [], activities = [], onSelectAct
       
       const actualHours = m.sleep_duration ? m.sleep_duration / 60 : 0;
       
-      // Target sleep logic
-      // Base: 8h (480 mins)
-      let targetMins = 480;
-      // Add based on active calories (e.g. 15 mins for every 500 kcal)
-      if (m.calories_active) targetMins += (m.calories_active / 500) * 15;
-      // Add based on distance (e.g. 10 mins for every 10 km) -> actually 1 min per km
-      if (m.distance_m) targetMins += (m.distance_m / 1000) * 1;
-      // Add based on stress (e.g. +0.5 mins for every point over 50)
-      if (m.stress_level && m.stress_level > 50) targetMins += (m.stress_level - 50) * 0.5;
+      // Target sleep logic (dynamic based on strain)
+      // Base: 7.5h (450 mins)
+      let targetMins = 450;
+      // Add based on active calories (e.g. +30 mins for every 500 kcal active)
+      if (m.calories_active) targetMins += (m.calories_active / 500) * 30;
+      // Add based on distance (e.g. +5 mins per km walked/ran)
+      if (m.distance_m) targetMins += (m.distance_m / 1000) * 5;
+      // Add based on stress (e.g. +1 min for every point over 25)
+      if (m.stress_level && m.stress_level > 25) targetMins += (m.stress_level - 25) * 1;
 
       const targetHours = targetMins / 60;
 
