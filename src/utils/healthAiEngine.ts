@@ -120,17 +120,49 @@ export function generateHealthSectionAnalysis(
   // ---------------------------------------------------------------------------
   // 5. COMPOSIZIONE CORPOREA & PESO
   // ---------------------------------------------------------------------------
-  const weight30 = getAvg(recent30, 'weight_kg', currentWeight);
-  const weightDiff = (currentWeight - weight30).toFixed(1);
+  const recent90 = history.slice(0, 90);
+  
+  const getLatestWeight = (list: DailyMetrics[]) => {
+    const valid = list.filter(m => m.weight_kg != null && typeof m.weight_kg === 'number' && m.weight_kg > 0);
+    return valid.length > 0 ? valid[0].weight_kg : null;
+  };
 
-  let bodyStatus = `Peso Registrato: ${currentWeight.toFixed(1)} kg (Stabile su 30gg)`;
-  let bodyInsight = `Il peso attuale (${currentWeight.toFixed(1)} kg) si presenta in linea con il tracciamento dei 30 giorni (media ${weight30.toFixed(1)} kg, variazione: ${Number(weightDiff) >= 0 ? '+' : ''}${weightDiff} kg).`;
-  let bodyMargin = "Margine di miglioramento: Reintegrare i sali minerali ed i carboidrati nei primi 45 minuti post-corsa per ottimizzare il recupero del glicogeno.";
+  const currentWeightFixed = current.weight_kg || getLatestWeight(recent7) || getLatestWeight(recent30);
+  
+  let bodyStatus = "Dati Peso Non Disponibili";
+  let bodyInsight = "Nessuna misurazione del peso registrata di recente.";
+  let bodyMargin = "Margine di miglioramento: Registra il tuo peso regolarmente (idealmente al mattino a digiuno) per sbloccare l'analisi del trend.";
 
-  if (Math.abs(Number(weightDiff)) > 1.2) {
-    bodyStatus = `Fluttuazione Ponderale (${Number(weightDiff) > 0 ? '+' : ''}${weightDiff} kg su 30gg)`;
-    bodyInsight = `Rilevata una fluttuazione di ${weightDiff} kg rispetto alla media mensile. Solitamente legata a variazioni nell'idratazione corporea o al ripristino delle scorte di carboidrati.`;
-    bodyMargin = "Margine di miglioramento: Verificare l'idratazione prima e dopo gli allenamenti bevendo almeno 500ml d'acqua extra per ogni ora di attività.";
+  if (currentWeightFixed != null) {
+    const weight7 = getAvg(recent7, 'weight_kg', currentWeightFixed);
+    const weight30 = getAvg(recent30, 'weight_kg', weight7);
+    const weight90 = getAvg(recent90, 'weight_kg', weight30);
+    
+    const diff30 = (weight7 - weight30).toFixed(1);
+    const diff90 = (weight30 - weight90).toFixed(1);
+    
+    const numDiff30 = Number(diff30);
+    const numDiff90 = Number(diff90);
+    
+    bodyStatus = `Peso Recente: ${currentWeightFixed.toFixed(1)} kg (Trend a 30gg: ${numDiff30 > 0 ? '+' : ''}${numDiff30} kg)`;
+    
+    let trendDesc = "Stabile";
+    if (numDiff30 > 0.8) trendDesc = "In Aumento";
+    else if (numDiff30 < -0.8) trendDesc = "In Diminuzione";
+    
+    let longTrendDesc = "Costante";
+    if (numDiff90 > 1.5) longTrendDesc = "Aumento sul Lungo Periodo";
+    else if (numDiff90 < -1.5) longTrendDesc = "Diminuzione sul Lungo Periodo";
+    
+    bodyInsight = `Analisi Globale: Il peso medio settimanale è ${weight7.toFixed(1)} kg (${trendDesc} vs media mensile di ${weight30.toFixed(1)} kg). Sul trimestre il trend risulta ${longTrendDesc} (media 90gg: ${weight90.toFixed(1)} kg).`;
+    
+    bodyMargin = "Margine di miglioramento: Per ottimizzare la composizione corporea, abbina allenamenti di forza alla corsa per preservare la massa magra durante le fasi di calo ponderale.";
+    
+    if (numDiff30 > 1.2) {
+      bodyMargin = "Margine di miglioramento: Un rapido aumento di peso a breve termine è spesso ritenzione idrica. Assicurati di bere a sufficienza e limitare l'eccesso di sodio post-corsa.";
+    } else if (numDiff30 < -1.2) {
+      bodyMargin = "Margine di miglioramento: Il peso sta calando velocemente. Monitora l'apporto energetico per evitare di perdere forza e intaccare il recupero muscolare (mangia abbastanza carboidrati!).";
+    }
   }
 
   return {

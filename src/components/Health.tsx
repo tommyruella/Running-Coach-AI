@@ -1,6 +1,6 @@
 import { generateHealthSectionAnalysis } from '../utils/healthAiEngine';
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
-import { ChevronLeft, ChevronRight, MapPin, X, Loader2, ChevronDown, ChevronUp, Sparkles } from 'lucide-react';
+import { ChevronLeft, ChevronRight, MapPin, X, Loader2, ChevronDown, ChevronUp, Sparkles, Cloud, Sun, CloudRain } from 'lucide-react';
 import {
   ResponsiveContainer,
   BarChart, Bar, Cell, LabelList,
@@ -460,6 +460,15 @@ export default function Health({ dailyMetrics = [], activities = [], onSelectAct
     return '#FF3B30'; // Apple Red
   };
 
+  const getReadinessComment = (val?: number) => {
+    if (!val) return "Dati insufficienti per valutare la readiness odierna.";
+    if (val >= 90) return "La tua readiness è ai massimi livelli. Sei perfettamente recuperato e pronto per affrontare sforzi intensi o superare i tuoi record.";
+    if (val >= 75) return "Ottima readiness. Il corpo ha recuperato bene ed è preparato per un allenamento produttivo e di qualità.";
+    if (val >= 50) return "Readiness moderata. Puoi allenarti, ma ascolta il tuo corpo e considera di ridurre l'intensità se avverti affaticamento.";
+    if (val >= 25) return "La tua readiness è bassa. Il recupero non è ottimale; valuta un allenamento leggero o una giornata di riposo attivo.";
+    return "Readiness molto bassa. Il tuo corpo ha un forte bisogno di recupero. È fortemente consigliato riposo o attività di scarico.";
+  };
+
   const AiInsightAccordion = ({ analysis, title = "Analisi AI" }: any) => {
     const [isExpanded, setIsExpanded] = useState(false);
     if (!analysis) return null;
@@ -560,10 +569,29 @@ export default function Health({ dailyMetrics = [], activities = [], onSelectAct
     <div className="space-y-10" id="health-tab">
       
       {/* 1. HEADER (Left aligned) & SINGLE DAY NAVIGATOR (Full Width) */}
-      <div className="mb-4">
+      <div className="mb-4 flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight text-primary select-none">
           Salute
         </h1>
+        {weatherData && (
+          <div 
+            className="flex items-center gap-2 cursor-pointer select-none bg-[var(--surface-card)] px-3 py-1.5 rounded-[12px] border border-[var(--border-subtle)] shadow-sm hover:border-[var(--primary)] transition-colors"
+            onClick={(e) => {
+              if (e.detail === 3) setIsLocationModalOpen(true);
+            }}
+          >
+            {weatherData.desc.toLowerCase().includes('pioggia') || weatherData.desc.toLowerCase().includes('rovesci') ? (
+              <CloudRain className="w-3.5 h-3.5 text-secondary" />
+            ) : weatherData.desc.toLowerCase().includes('nuvoloso') ? (
+              <Cloud className="w-3.5 h-3.5 text-secondary" />
+            ) : (
+              <Sun className="w-3.5 h-3.5 text-secondary" />
+            )}
+            <span className="text-xs font-bold text-secondary tracking-tight uppercase">
+              {weatherData.cityName} • {Math.round(weatherData.tempMax)}°
+            </span>
+          </div>
+        )}
       </div>
 
       {dailyMetrics.length > 0 && currentMetrics && (
@@ -643,11 +671,27 @@ export default function Health({ dailyMetrics = [], activities = [], onSelectAct
                   </div>
                   <span className="text-sm font-semibold text-primary tracking-tight">Overview AI</span>
                 </div>
-                <div className="space-y-1.5">
-                  <h4 className="text-xs font-bold text-primary uppercase tracking-widest">{sectionAnalyses.overall.trendStatus}</h4>
-                  <p className="text-sm text-secondary leading-relaxed font-sans">
-                    {sectionAnalyses.overall.insightText}
-                  </p>
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <h4 className="text-xs font-bold text-primary uppercase tracking-widest">{sectionAnalyses.overall.trendStatus}</h4>
+                    <p className="text-sm text-secondary leading-relaxed font-sans">
+                      {sectionAnalyses.overall.insightText}
+                    </p>
+                  </div>
+                  <div className="space-y-1.5 pt-4 border-t border-[var(--border-subtle)]">
+                    <h4 className="text-xs font-bold text-primary uppercase tracking-widest">Readiness</h4>
+                    <p className="text-sm text-secondary leading-relaxed font-sans">
+                      {getReadinessComment(sleepScoreData?.finalScore)}
+                    </p>
+                  </div>
+                  {sectionAnalyses.sleep && sectionAnalyses.sleep.insightText && sectionAnalyses.sleep.insightText !== "N/A" && (
+                    <div className="space-y-1.5 pt-4 border-t border-[var(--border-subtle)]">
+                      <h4 className="text-xs font-bold text-primary uppercase tracking-widest">Sonno: {sectionAnalyses.sleep.trendStatus}</h4>
+                      <p className="text-sm text-secondary leading-relaxed font-sans">
+                        {sectionAnalyses.sleep.insightText}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
