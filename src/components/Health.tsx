@@ -716,22 +716,22 @@ export default function Health({ dailyMetrics = [], activities = [], onSelectAct
                       Media: <span className="font-bold text-primary">{Math.round(sleepVsTargetData.reduce((acc, curr) => acc + (curr.Score || 0), 0) / (sleepVsTargetData.filter(d => d.Score > 0).length || 1))}</span>/100
                     </div>
                   </div>
-                  <div className="h-[95px] w-full">
+                  <div className="h-[140px] w-full">
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={sleepVsTargetData} margin={{ top: 18, right: 10, left: 10, bottom: 0 }}>
-                        <XAxis dataKey="dayName" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 10 }} />
+                      <BarChart data={sleepVsTargetData} margin={{ top: 22, right: 10, left: 10, bottom: 0 }}>
+                        <XAxis dataKey="dayName" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 11, fontWeight: 600 }} />
                         <YAxis hide domain={[0, 100]} />
-                        <Bar dataKey="Score" radius={[4, 4, 0, 0]} maxBarSize={24}>
+                        <Bar dataKey="Score" radius={[6, 6, 0, 0]} maxBarSize={38}>
                           {sleepVsTargetData.map((entry, index) => {
                             const isSelected = entry.fullDate === currentMetrics?.date?.split('T')[0];
-                            let color = '#3b82f6';
-                            if (entry.Score >= 80) color = '#32D74B';
-                            else if (entry.Score >= 60) color = '#FF9F0A';
-                            else if (entry.Score > 0) color = '#FF453A';
-                            else color = 'var(--border-subtle)';
-                            return <Cell key={`cell-${index}`} fill={color} opacity={isSelected ? 1 : 0.45} />;
+                            let color = 'var(--border-subtle)';
+                            if (entry.Score >= 90) color = '#3b82f6';
+                            else if (entry.Score >= 80) color = '#60a5fa';
+                            else if (entry.Score >= 60) color = '#d946ef';
+                            else if (entry.Score > 0) color = '#ec4899';
+                            return <Cell key={`cell-${index}`} fill={color} opacity={isSelected ? 1 : 0.65} />;
                           })}
-                          <LabelList dataKey="Score" position="top" formatter={(val: any) => val > 0 ? val : ''} style={{ fill: 'var(--text-primary)', fontSize: 10, fontWeight: 'bold' }} />
+                          <LabelList dataKey="Score" position="top" formatter={(val: any) => val > 0 ? val : ''} style={{ fill: 'var(--text-primary)', fontSize: 11, fontWeight: 'bold' }} />
                         </Bar>
                       </BarChart>
                     </ResponsiveContainer>
