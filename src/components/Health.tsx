@@ -43,9 +43,27 @@ const HrTooltip = ({ active, payload }: any) => {
     const data = payload[0].payload;
     const timeStr = new Date(data.time).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
     return (
-      <div className="bg-[var(--surface-overlay)] text-primary p-2 border border-[var(--border-subtle)] rounded shadow-sm text-xs font-mono">
-        <div className="text-secondary mb-1">{timeStr}</div>
-        <div className="font-bold text-[var(--accent-rose)]">{data.hr} bpm</div>
+      <div className="mac-popover px-2.5 py-1.5 text-xs font-mono z-[5000]">
+        <span className="text-secondary block text-[10px] mb-0.5">{timeStr}</span>
+        <span className="text-primary font-bold">{data.hr}</span>
+      </div>
+    );
+  }
+  return null;
+};
+
+const CorrelationTooltip = ({ active, payload, correlationType }: any) => {
+  if (active && payload && payload.length) {
+    const data = payload[0].payload;
+    return (
+      <div className="bg-[var(--bg-primary)] text-primary p-2 border border-[var(--border-subtle)] rounded shadow-sm text-[11px] font-mono leading-relaxed">
+        <div className="text-secondary mb-2 uppercase font-bold tracking-widest">{data.date}</div>
+        <div className="font-bold text-[#3b82f6]">Sonno: {data.sleep}</div>
+        {correlationType === 'rhr' ? (
+          <div className="font-bold text-[#ec4899]">RHR: {data.rhr || 'N/D'}</div>
+        ) : (
+          <div className="font-bold text-[var(--accent-amber)]">Stress: {data.stress || 'N/D'}</div>
+        )}
       </div>
     );
   }
@@ -133,6 +151,7 @@ export default function Health({ dailyMetrics = [], activities = [], onSelectAct
   const [correlationType, setCorrelationType] = useState<'rhr' | 'stress'>('rhr');
   const [weatherData, setWeatherData] = useState<DetailedWeatherData | null>(null);
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
+  const [hoveredSleepDay, setHoveredSleepDay] = useState<{date: string, score: number} | null>(null);
   const [customLocations, setCustomLocations] = useState<Record<string, { lat: number; lon: number; name: string }>>(() => {
     try {
       return JSON.parse(localStorage.getItem('customLocations') || '{}');
@@ -320,6 +339,145 @@ export default function Health({ dailyMetrics = [], activities = [], onSelectAct
     });
   }, [currentMetrics]);
 
+  const fitnessFatigueData = useMemo(() => {
+    if (!dailyMetrics || dailyMetrics.length === 0) return [];
+    
+    const data = [...dailyMetrics].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    
+    let ctl = 0;
+    let atl = 0;
+    const results = [];
+    
+    const CTL_DECAY = Math.exp(-1/42);
+    const ATL_DECAY = Math.exp(-1/7);
+    
+    for (const day of data) {
+      // Proxy Training Load: Active Calories > Distance > Steps
+      let load = 0;
+      if (day.calories_active && day.calories_active > 0) {
+        load = day.calories_active * 0.1;
+      } else if (day.distance_m && day.distance_m > 0) {
+        load = (day.distance_m / 1000) * 10;
+      } else if (day.steps && day.steps > 0) {
+        load = (day.steps / 1000) * 4;
+      }
+      
+      ctl = load * (1 - CTL_DECAY) + ctl * CTL_DECAY;
+      atl = load * (1 - ATL_DECAY) + atl * ATL_DECAY;
+      
+      results.push({
+        date: new Date(day.date).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' }),
+        rawDate: day.date,
+        ctl: Math.round(ctl),
+        atl: Math.round(atl),
+        tsb: Math.round(ctl - atl)
+      });
+    }
+    
+    return results.slice(-90); // Last 90 days
+  }, [dailyMetrics]);
+
+  const sleepHeatmapData = useMemo(() => {
+    if (!dailyMetrics || dailyMetrics.length === 0) return [];
+    
+    // The real end date based on latest data
+    const realEndDate = new Date(dailyMetrics[0].date);
+    
+    // Add 28 days (4 columns) to the right to visually center the existing data
+    const endDate = new Date(realEndDate);
+    endDate.setDate(endDate.getDate() + 28);
+    
+    const startDate = new Date(endDate);
+    startDate.setDate(startDate.getDate() - 363); 
+    
+    const daysMap = new Map();
+    for (const m of dailyMetrics) {
+      daysMap.set(m.date.split('T')[0], m.sleep_score || 0);
+    }
+    
+    const results = [];
+    let curr = new Date(startDate);
+    while (curr <= endDate) {
+      const d = curr.toISOString().split('T')[0];
+      results.push({
+        date: d,
+        score: daysMap.get(d) || 0
+      });
+      curr.setDate(curr.getDate() + 1);
+    }
+    
+    return results;
+  }, [dailyMetrics]);
+
+  const sleepHeatmapStats = useMemo(() => {
+    if (!sleepHeatmapData || sleepHeatmapData.length === 0) return null;
+    let totalScore = 0;
+    let daysWithScore = 0;
+    let daysOver90 = 0;
+    let daysOver80 = 0;
+    let daysOver60 = 0;
+    let daysUnder60 = 0;
+    
+    sleepHeatmapData.forEach(d => {
+      if (d.score > 0) {
+        totalScore += d.score;
+        daysWithScore++;
+        if (d.score >= 90) daysOver90++;
+        else if (d.score >= 80) daysOver80++;
+        else if (d.score >= 60) daysOver60++;
+        else daysUnder60++;
+      }
+    });
+
+    const avgScore = daysWithScore > 0 ? Math.round(totalScore / daysWithScore) : 0;
+    
+    return { avgScore, daysWithScore, daysOver90, daysOver80, daysOver60, daysUnder60 };
+  }, [sleepHeatmapData]);
+
+  const rhrHistoryData = useMemo(() => {
+    if (!dailyMetrics || dailyMetrics.length === 0) return [];
+    
+    const data = [...dailyMetrics].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const validData = data.filter(d => d.resting_hr != null && d.resting_hr > 0);
+    
+    return validData.map((d, i, arr) => {
+      let sum = 0;
+      let count = 0;
+      for (let j = Math.max(0, i - 29); j <= i; j++) {
+        sum += arr[j].resting_hr;
+        count++;
+      }
+      return {
+        date: new Date(d.date).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' }),
+        rhr: d.resting_hr,
+        trend: Math.round((sum / count) * 10) / 10
+      };
+    });
+  }, [dailyMetrics]);
+
+  const stressHistoryData = useMemo(() => {
+    if (!dailyMetrics || dailyMetrics.length === 0) return [];
+    
+    const data = [...dailyMetrics].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const validData = data.filter(d => (d.stress_level != null && d.stress_level > 0) || (d.resting_hr != null && d.resting_hr > 0));
+    
+    return validData.map((d, i, arr) => {
+      const getStress = (day: any) => day.stress_level ?? (day.resting_hr ? Math.round(Math.max(12, Math.min(85, (day.resting_hr - 40) * 0.95 + 10))) : 22);
+      
+      let sum = 0;
+      let count = 0;
+      for (let j = Math.max(0, i - 29); j <= i; j++) {
+        sum += getStress(arr[j]);
+        count++;
+      }
+      return {
+        date: new Date(d.date).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' }),
+        stress: getStress(d),
+        trend: Math.round((sum / count) * 10) / 10
+      };
+    });
+  }, [dailyMetrics]);
+
   const handleSaveCustomLocation = () => {
     if (!currentMetrics?.date || !inputCity.trim()) return;
     const datePart = currentMetrics.date.split('T')[0];
@@ -466,12 +624,13 @@ export default function Health({ dailyMetrics = [], activities = [], onSelectAct
   }, [dailyMetrics, currentMetrics?.date]);
 
   // NEW ULTRA MINIMAL CAPSULE (No borders, pure typography)
-    const getReadinessColor = (val?: number) => {
+  const getReadinessColor = (val?: number) => {
     if (!val) return 'var(--color-primary)';
-    if (val >= 75) return '#32D74B'; // Apple Green
-    if (val >= 50) return '#FFD60A'; // Apple Yellow
-    if (val >= 25) return '#FF9F0A'; // Apple Orange
-    return '#FF3B30'; // Apple Red
+    if (val >= 85) return '#10b981'; // Premium Emerald Green
+    if (val >= 70) return '#84cc16'; // Premium Lime Green
+    if (val >= 50) return '#f59e0b'; // Premium Amber Gold
+    if (val >= 30) return '#f97316'; // Premium Warm Orange
+    return '#ef4444'; // Premium Coral Red
   };
 
   const getReadinessComment = (val?: number) => {
@@ -481,6 +640,63 @@ export default function Health({ dailyMetrics = [], activities = [], onSelectAct
     if (val >= 50) return "Readiness moderata. Puoi allenarti, ma ascolta il tuo corpo e considera di ridurre l'intensità se avverti affaticamento.";
     if (val >= 25) return "La tua readiness è bassa. Il recupero non è ottimale; valuta un allenamento leggero o una giornata di riposo attivo.";
     return "Readiness molto bassa. Il tuo corpo ha un forte bisogno di recupero. È fortemente consigliato riposo o attività di scarico.";
+  };
+
+  const ReadinessRing = ({ score }: { score: number }) => {
+    const [animatedScore, setAnimatedScore] = useState(0);
+    
+    useEffect(() => {
+      const t = setTimeout(() => setAnimatedScore(score), 100);
+      return () => clearTimeout(t);
+    }, [score]);
+
+    const radius = 80;
+    const stroke = 12;
+    const normalizedRadius = radius - stroke / 2;
+    const circumference = normalizedRadius * 2 * Math.PI;
+    const strokeDashoffset = circumference - ((animatedScore || 0) / 100) * circumference;
+    const color = getReadinessColor(score);
+
+    const getLabel = (val?: number) => {
+      if (!val) return "";
+      if (val >= 90) return "Eccellente";
+      if (val >= 75) return "Ottimale";
+      if (val >= 50) return "Moderata";
+      if (val >= 25) return "Bassa";
+      return "Critica";
+    };
+
+    return (
+      <div className="relative flex items-center justify-center py-6">
+        <svg height={radius * 2} width={radius * 2} className="transform -rotate-90">
+          <circle
+            stroke="var(--border-subtle)"
+            fill="transparent"
+            strokeWidth={stroke}
+            r={normalizedRadius}
+            cx={radius}
+            cy={radius}
+          />
+          <circle
+            stroke={color}
+            fill="transparent"
+            strokeWidth={stroke}
+            strokeDasharray={circumference + ' ' + circumference}
+            style={{ strokeDashoffset, filter: `drop-shadow(0 0 12px ${color}50)` }}
+            strokeLinecap="round"
+            r={normalizedRadius}
+            cx={radius}
+            cy={radius}
+            className="transition-all duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)]"
+          />
+        </svg>
+        <div className="absolute flex flex-col items-center justify-center text-center">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-secondary mb-1">Readiness</span>
+          <span className="text-5xl font-black font-mono leading-none" style={{ color }}>{score || '--'}</span>
+          <span className="text-[10px] font-bold uppercase tracking-widest mt-1" style={{ color }}>{getLabel(score)}</span>
+        </div>
+      </div>
+    );
   };
 
   const AiInsightAccordion = ({ analysis, title = "Analisi AI" }: any) => {
@@ -652,28 +868,32 @@ export default function Health({ dailyMetrics = [], activities = [], onSelectAct
           {/* VITALI HERO - Grid of Cards */}
           {/* ========================================================================= */}
           <section className="clean-panel flex flex-col shadow-sm">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-8 p-6 sm:p-8 pb-8">
-              <div className="flex flex-col items-start text-left space-y-2">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-secondary">Readiness</span>
-                <span className={`text-4xl font-black font-mono ${getReadinessColor(sleepScoreData?.finalScore)}`}>{sleepScoreData?.finalScore || '--'}</span>
+            <div className="p-6 sm:p-8 pb-8 flex flex-col items-center">
+              
+              {/* The Hero Radial Ring */}
+              <div className="w-full flex justify-center mb-8">
+                <ReadinessRing score={sleepScoreData?.finalScore || 0} />
               </div>
 
-              <div className="flex flex-col items-start text-left space-y-2">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-secondary">RHR</span>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-4xl font-black font-mono text-[var(--accent-rose)]">{currentMetrics.resting_hr || '--'}</span>
-                  <span className="text-xs font-mono text-secondary">bpm</span>
+              {/* Supporting Stats */}
+              <div className="grid grid-cols-3 gap-2 md:gap-8 max-w-lg mx-auto w-full pt-8 border-t border-[var(--border-subtle)]">
+                <div className="flex flex-col items-center text-center space-y-1">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-secondary">RHR</span>
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-2xl font-black font-mono text-[var(--accent-rose)]">{currentMetrics.resting_hr || '--'}</span>
+                    <span className="text-[10px] font-mono text-secondary">bpm</span>
+                  </div>
                 </div>
-              </div>
 
-              <div className="flex flex-col items-start text-left space-y-2">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-secondary">Sonno</span>
-                <span className="text-4xl font-black font-mono text-[#3b82f6]">{formatSleepDuration(currentMetrics.sleep_duration).replace(' ', '')}</span>
-              </div>
+                <div className="flex flex-col items-center text-center space-y-1 border-l border-r border-[var(--border-subtle)] px-2">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-secondary">Sonno</span>
+                  <span className="text-2xl font-black font-mono text-[#3b82f6]">{formatSleepDuration(currentMetrics.sleep_duration).replace(' ', '')}</span>
+                </div>
 
-              <div className="flex flex-col items-start text-left space-y-2">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-secondary">Stress</span>
-                <span className="text-4xl font-black font-mono text-[#d97706]">{currentMetrics.stress_level ?? '--'}</span>
+                <div className="flex flex-col items-center text-center space-y-1">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-secondary">Stress</span>
+                  <span className="text-2xl font-black font-mono text-[#d97706]">{currentMetrics.stress_level ?? '--'}</span>
+                </div>
               </div>
             </div>
 
@@ -874,6 +1094,48 @@ export default function Health({ dailyMetrics = [], activities = [], onSelectAct
                 </div>
               </div>
             )}
+
+            {/* Sleep Heatmap Annuale */}
+            {sleepHeatmapData.length > 0 && sleepHeatmapStats && (
+              <div className="flex flex-col lg:flex-row gap-6 lg:gap-10 mt-4 pt-6 border-t border-[var(--border-subtle)] overflow-hidden w-full">
+                
+                {/* Left: Summary Stats */}
+                <div className="flex flex-col justify-center min-w-[200px] space-y-4">
+                  <div>
+                    <span className="text-[10px] uppercase font-bold tracking-widest text-secondary block mb-1">
+                      {hoveredSleepDay ? `Score del ${new Date(hoveredSleepDay.date).toLocaleDateString('it-IT', { day: '2-digit', month: 'short' })}` : 'Score Medio (365g)'}
+                    </span>
+                    <span className="text-4xl font-black text-primary">
+                      {hoveredSleepDay ? (hoveredSleepDay.score > 0 ? hoveredSleepDay.score : 'N/D') : sleepHeatmapStats.avgScore}
+                    </span>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex justify-between items-center text-[11px]"><span className="text-secondary font-mono">Giorni &ge;90</span><span className="font-bold text-[#3b82f6]">{sleepHeatmapStats.daysOver90}</span></div>
+                    <div className="flex justify-between items-center text-[11px]"><span className="text-secondary font-mono">Giorni 80-89</span><span className="font-bold text-[#60a5fa]">{sleepHeatmapStats.daysOver80}</span></div>
+                    <div className="flex justify-between items-center text-[11px]"><span className="text-secondary font-mono">Giorni 60-79</span><span className="font-bold text-[#d946ef]">{sleepHeatmapStats.daysOver60}</span></div>
+                    <div className="flex justify-between items-center text-[11px]"><span className="text-secondary font-mono">Giorni &lt;60</span><span className="font-bold text-[#ec4899]">{sleepHeatmapStats.daysUnder60}</span></div>
+                  </div>
+                </div>
+
+                {/* Right: Heatmap Grid */}
+                <div className="flex-1 overflow-x-auto pb-4 custom-scrollbar flex items-center lg:justify-start" onMouseLeave={() => setHoveredSleepDay(null)}>
+                  <div 
+                    className="grid grid-rows-7 grid-flow-col gap-1 min-w-max"
+                    style={{ gridAutoColumns: 'max-content' }}
+                  >
+                    {sleepHeatmapData.map((day, i) => (
+                      <div
+                        key={i}
+                        onMouseEnter={() => setHoveredSleepDay(day)}
+                        className="w-[12px] h-[12px] rounded-[3px] transition-transform hover:scale-125 cursor-crosshair"
+                        style={{ backgroundColor: day.score >= 90 ? '#3b82f6' : day.score >= 80 ? '#60a5fa' : day.score >= 60 ? '#d946ef' : day.score > 0 ? '#ec4899' : 'rgba(150,150,150,0.15)' }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
 {/* AI Insight */}
             <div className="w-full">
               <AiInsightAccordion analysis={sectionAnalyses?.sleep} title="Insight Sonno" />
@@ -884,58 +1146,99 @@ export default function Health({ dailyMetrics = [], activities = [], onSelectAct
           <section className="clean-panel p-6 sm:p-8 shadow-sm flex flex-col space-y-6">
             <h3 className="text-xl font-bold tracking-tight text-primary">Cardio & Stress</h3>
 
-            {/* Charts Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-2">
+            {/* Intraday HR */}
+            <div className="pt-2">
               <div className="space-y-4">
                 <span className="text-[10px] uppercase font-bold tracking-widest text-secondary block">HR Intraday (24h)</span>
-                <div className="h-[120px]">
+                <div className="h-[140px]">
                   {currentMetrics?.hr_timeline && currentMetrics.hr_timeline.length > 0 ? (
                     <ResponsiveContainer width="100%" height="100%">
                       <LineChart data={currentMetrics.hr_timeline.map((h: any) => ({ time: new Date(h.time).getTime(), hr: h.hr }))}>
-                        <YAxis hide domain={['dataMin', 'dataMax']} />
-                        <Tooltip content={<HrTooltip />} />
-                        <Line type="natural" dataKey="hr" stroke="var(--accent-rose)" strokeWidth={1.5} dot={false} activeDot={{ r: 4, fill: 'var(--accent-rose)' }} connectNulls />
+                        <XAxis hide dataKey="time" type="number" domain={['dataMin', 'dataMax']} />
+                        <YAxis hide domain={['dataMin - 10', 'dataMax + 10']} />
+                        <Tooltip content={<HrTooltip />} wrapperStyle={{ zIndex: 100 }} cursor={{ stroke: 'var(--border-subtle)', strokeWidth: 1, strokeDasharray: '4 4' }} />
+                        <Line 
+                          type="monotone" 
+                          dataKey="hr" 
+                          stroke="var(--accent-rose)" 
+                          strokeWidth={1.5} 
+                          dot={false}
+                          activeDot={{ r: 4, fill: 'var(--bg-primary)', stroke: 'var(--accent-rose)', strokeWidth: 2 }} 
+                          connectNulls
+                        />
                       </LineChart>
                     </ResponsiveContainer>
                   ) : (
-                    <div className="text-xs text-muted font-mono">Dati non disponibili</div>
+                    <div className="text-xs text-muted font-mono h-full flex items-center justify-center">Dati non disponibili</div>
                   )}
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <span className="text-[10px] uppercase font-bold tracking-widest text-secondary block">Correlazione</span>
-                  <div className="flex gap-4 text-xs font-mono">
-                    <button onClick={() => setCorrelationType('rhr')} className={correlationType === 'rhr' ? 'text-primary font-bold' : 'text-muted'}>RHR</button>
-                    <button onClick={() => setCorrelationType('stress')} className={correlationType === 'stress' ? 'text-primary font-bold' : 'text-muted'}>STRESS</button>
-                  </div>
-                </div>
-                <div className="h-[120px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart data={[...dailyMetrics].reverse().map(m => ({
-                      date: new Date(m.date).toLocaleDateString('it-IT', { day: '2-digit' }),
-                      sleep: m.sleep_score || 70,
-                      rhr: m.resting_hr || null,
-                      stress: m.stress_level ?? (m.resting_hr ? Math.round(Math.max(12, Math.min(85, (m.resting_hr - 40) * 0.95 + 10))) : 22),
-                    }))}>
-                      <YAxis yAxisId="left" hide domain={[0, 100]} />
-                      <YAxis yAxisId="right" orientation="right" hide domain={correlationType === 'stress' ? [0, 100] : ['auto', 'auto']} />
-                      <Tooltip content={(props: any) => <MinimalTooltip {...props} />} />
-                      <Bar yAxisId="left" dataKey="sleep" fill="var(--accent-blue)" radius={[2, 2, 0, 0]} maxBarSize={16} />
-                      {correlationType === 'rhr' ? (
-                        <Line yAxisId="right" type="natural" dataKey="rhr" stroke="var(--accent-rose)" strokeWidth={2} dot={{ r: 2, fill: 'var(--accent-rose)' }} connectNulls />
-                      ) : (
-                        <Line yAxisId="right" type="natural" dataKey="stress" stroke="var(--accent-amber)" strokeWidth={2} dot={{ r: 2, fill: 'var(--accent-amber)' }} connectNulls />
-                      )}
-                    </ComposedChart>
-                  </ResponsiveContainer>
                 </div>
               </div>
             </div>
 
+            {/* Annual RHR Trend */}
+              <div className="flex flex-col space-y-4 mt-6 pt-4 border-t border-[var(--border-subtle)]">
+                <span className="text-[10px] uppercase font-bold tracking-widest text-secondary block">Andamento RHR (365g)</span>
+                <div className="h-[150px] w-full">
+                  {rhrHistoryData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <ComposedChart data={rhrHistoryData} margin={{ top: 5, right: 0, left: 0, bottom: 5 }}>
+                        <XAxis dataKey="date" hide={true} />
+                        <YAxis domain={['dataMin - 2', 'dataMax + 2']} hide={true} />
+                        <Tooltip content={<MinimalTooltip />} />
+                        <Area 
+                          type="monotone" 
+                          dataKey="rhr" 
+                          name="RHR"
+                          stroke="var(--accent-rose)" 
+                          fill="var(--accent-rose)" 
+                          fillOpacity={0.15} 
+                          strokeWidth={0}
+                          activeDot={{ r: 4, fill: 'var(--bg-primary)', stroke: 'var(--accent-rose)', strokeWidth: 2 }}
+                        />
+                        <Line type="basis" dataKey="trend" name="Trend (30g)" stroke="var(--accent-rose)" strokeWidth={2} dot={false} strokeOpacity={0.8} />
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="h-full flex items-center justify-center text-xs text-tertiary font-mono">
+                      Nessuno storico RHR disponibile.
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              {/* Annual Stress Trend */}
+              <div className="flex flex-col space-y-4 mt-6 pt-4 border-t border-[var(--border-subtle)]">
+                <span className="text-[10px] uppercase font-bold tracking-widest text-secondary block">Andamento Stress (365g)</span>
+                <div className="h-[150px] w-full">
+                  {stressHistoryData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <ComposedChart data={stressHistoryData} margin={{ top: 5, right: 0, left: 0, bottom: 5 }}>
+                        <XAxis dataKey="date" hide={true} />
+                        <YAxis domain={['auto', 'auto']} hide={true} />
+                        <Tooltip content={<MinimalTooltip />} />
+                        <Area 
+                          type="monotone" 
+                          dataKey="stress" 
+                          name="Stress"
+                          stroke="var(--accent-amber)" 
+                          fill="var(--accent-amber)" 
+                          fillOpacity={0.15} 
+                          strokeWidth={0}
+                          activeDot={{ r: 4, fill: 'var(--bg-primary)', stroke: 'var(--accent-amber)', strokeWidth: 2 }}
+                        />
+                        <Line type="basis" dataKey="trend" name="Trend (30g)" stroke="var(--accent-amber)" strokeWidth={2} dot={false} strokeOpacity={0.8} />
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="h-full flex items-center justify-center text-xs text-tertiary font-mono">
+                      Nessuno storico Stress disponibile.
+                    </div>
+                  )}
+                </div>
+              </div>
+
             {/* AI Insight */}
-            <div className="w-full">
+            <div className="w-full mt-6">
               <AiInsightAccordion analysis={sectionAnalyses?.cardio} title="Insight Cardio" />
             </div>
           </section>
@@ -1001,6 +1304,39 @@ export default function Health({ dailyMetrics = [], activities = [], onSelectAct
                       Nessuno storico peso disponibile.
                     </div>
                   )}
+                </div>
+              </div>
+
+              {/* Fitness vs Fatigue Chart */}
+              <div className="flex flex-col space-y-4 mt-6 pt-6 border-t border-[var(--border-subtle)]">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                  <span className="text-[10px] uppercase font-bold tracking-widest text-secondary">Fitness vs Fatigue (90g)</span>
+                  <div className="flex gap-4 text-[10px] font-bold font-mono">
+                    <div className="flex items-center gap-1"><span className="w-3 h-1 rounded-sm" style={{ backgroundColor: '#0ea5e9' }}></span> CTL</div>
+                    <div className="flex items-center gap-1"><span className="w-3 h-1 rounded-sm" style={{ backgroundColor: '#ec4899' }}></span> ATL</div>
+                    <div className="flex items-center gap-1"><span className="w-3 h-1 rounded-sm" style={{ backgroundColor: '#eab308' }}></span> TSB</div>
+                  </div>
+                </div>
+                <div className="h-[180px] w-full">
+                  {fitnessFatigueData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <ComposedChart data={fitnessFatigueData} margin={{ top: 10, right: 0, left: 0, bottom: 5 }}>
+                        <XAxis dataKey="date" hide={true} />
+                        <YAxis hide={true} domain={['auto', 'auto']} />
+                        <Tooltip content={<MinimalTooltip />} />
+                        <Area type="monotone" dataKey="ctl" name="Fitness (CTL)" stroke="#0ea5e9" fill="#0ea5e9" fillOpacity={0.4} strokeWidth={0} />
+                        <Line type="monotone" dataKey="atl" name="Fatica (ATL)" stroke="#ec4899" strokeWidth={2} dot={false} />
+                        <Line type="monotone" dataKey="tsb" name="Forma (TSB)" stroke="#eab308" strokeWidth={2} dot={false} />
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="h-full flex items-center justify-center text-xs text-tertiary font-mono">
+                      Dati insufficienti per il calcolo CTL/ATL.
+                    </div>
+                  )}
+                </div>
+                <div className="text-[11px] text-secondary leading-relaxed border-t border-[var(--border-subtle)] pt-3">
+                  <strong className="text-primary">CTL (Fitness)</strong> indica la preparazione aerobica a lungo termine (Area Azzurra). <strong className="text-primary">ATL (Fatica)</strong> indica lo stress cumulato nell'ultima settimana (Linea Rosa). <strong className="text-primary">TSB (Forma)</strong> è il bilancio: positivo = riposato, negativo = affaticato (Linea Gialla).
                 </div>
               </div>
 
