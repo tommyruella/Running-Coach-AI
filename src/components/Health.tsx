@@ -38,6 +38,20 @@ const VACATION_MAPPING: Record<string, { lat: number; lon: number; name: string 
 };
 const DEFAULT_LOCATION = { lat: 45.0069, lon: 7.8687, name: 'Riva presso Chieri' };
 
+const HrTooltip = ({ active, payload }: any) => {
+  if (active && payload && payload.length) {
+    const data = payload[0].payload;
+    const timeStr = new Date(data.time).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+    return (
+      <div className="bg-[var(--surface-overlay)] text-primary p-2 border border-[var(--border-subtle)] rounded shadow-sm text-xs font-mono">
+        <div className="text-secondary mb-1">{timeStr}</div>
+        <div className="font-bold text-[var(--accent-rose)]">{data.hr} bpm</div>
+      </div>
+    );
+  }
+  return null;
+};
+
 const tickStyle = { fill: 'var(--text-muted)', fontSize: 9, fontFamily: 'monospace' };
 const gridColor = 'var(--border-subtle)';
 
@@ -879,7 +893,7 @@ export default function Health({ dailyMetrics = [], activities = [], onSelectAct
                     <ResponsiveContainer width="100%" height="100%">
                       <LineChart data={currentMetrics.hr_timeline.map((h: any) => ({ time: new Date(h.time).getTime(), hr: h.hr }))}>
                         <YAxis hide domain={['dataMin', 'dataMax']} />
-                        <Tooltip content={(props: any) => <MinimalTooltip {...props} unit="bpm" />} />
+                        <Tooltip content={<HrTooltip />} />
                         <Line type="natural" dataKey="hr" stroke="var(--accent-rose)" strokeWidth={1.5} dot={false} activeDot={{ r: 4, fill: 'var(--accent-rose)' }} connectNulls />
                       </LineChart>
                     </ResponsiveContainer>
