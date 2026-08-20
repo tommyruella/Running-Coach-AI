@@ -38,7 +38,7 @@ export default function AiCoach() {
       const [planRes, setRes, actRes] = await Promise.all([
         fetch('/api/coach/plan'),
         fetch('/api/coach/settings'),
-        fetch('/api/activities')
+        fetch('/api/activities?limit=10000')
       ]);
       const p = await planRes.json();
       const s = await setRes.json();

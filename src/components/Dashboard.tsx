@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useMemo } from 'react';
-import { Activity, Calendar, Clock, Heart, Zap, ChevronRight, Flame, TrendingUp, TrendingDown, MapPin, Moon } from 'lucide-react';
+import { Activity, Calendar, Clock, Heart, Zap, ChevronRight, Flame, TrendingUp, TrendingDown, MapPin, Moon, Dumbbell } from 'lucide-react';
 import { MapContainer, TileLayer, Polyline } from 'react-leaflet';
 import {
   ResponsiveContainer,
@@ -22,6 +22,7 @@ import AiCoach from './AiCoach';
 interface DashboardProps {
   stats: RunningStats;
   activities: ActivityType[];
+  hevySessions?: any[];
   dailyMetrics?: any[];
   onSyncGarmin?: () => void;
   onNavigateToHistory: () => void;
@@ -175,7 +176,7 @@ export function MiniChartCard({ title, subtitle, value, unit, delta, deltaLabel,
   );
 }
 
-export default function Dashboard({ activities, dailyMetrics = [], onSyncGarmin, onNavigateToHistory, onSecretUnlock }: DashboardProps) {
+export default function Dashboard({ stats, activities, hevySessions = [], dailyMetrics = [], onSyncGarmin, onNavigateToHistory, onSecretUnlock }: DashboardProps) {
   const [range, setRange] = useState<Range>('3M');
   const tapCountRef = React.useRef(0);
   const tapTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
@@ -228,6 +229,31 @@ export default function Dashboard({ activities, dailyMetrics = [], onSyncGarmin,
 
     return { count, totalKm, totalMin, avgHr, avgPaceMin, totalKcal, deltaKm };
   }, [filtered, activities, range]);
+
+  const filteredHevy = useMemo(() => {
+    const cut = cutoffDate(range);
+    return [...hevySessions]
+      .filter(h => new Date(h.start_time) >= cut)
+      .sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime());
+  }, [hevySessions, range]);
+
+  const hevyRangeStats = useMemo(() => {
+    const count = filteredHevy.length;
+    const totalVolume = filteredHevy.reduce((s, h) => s + h.volume_kg, 0);
+    const totalMin = filteredHevy.reduce((s, h) => s + Math.round((new Date(h.end_time).getTime() - new Date(h.start_time).getTime()) / 60000), 0);
+    const totalExercises = filteredHevy.reduce((s, h) => s + h.exercise_count, 0);
+    
+    const cut = cutoffDate(range);
+    const prevCut = new Date(2 * cut.getTime() - Date.now());
+    const prev = hevySessions.filter(h => {
+      const d = new Date(h.start_time);
+      return d >= prevCut && d < cut;
+    });
+    const prevVolume = prev.reduce((s, h) => s + h.volume_kg, 0);
+    const deltaVolume = count > 0 && prev.length > 0 ? totalVolume - prevVolume : null;
+
+    return { count, totalVolume, totalMin, totalExercises, deltaVolume };
+  }, [filteredHevy, hevySessions, range]);
 
   const { streak, totalThisMonth, distanceThisMonth } = useMemo(() => calculateStreak(activities), [activities]);
 
@@ -292,6 +318,10 @@ export default function Dashboard({ activities, dailyMetrics = [], onSyncGarmin,
   const latestActivity = useMemo(() => {
     return activities.length > 0 ? [...activities].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0] : null;
   }, [activities]);
+
+  const latestHevySession = useMemo(() => {
+    return hevySessions.length > 0 ? [...hevySessions].sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime())[0] : null;
+  }, [hevySessions]);
 
   const [fullLatestActivity, setFullLatestActivity] = useState<ActivityType | null>(null);
   React.useEffect(() => {
@@ -432,6 +462,55 @@ export default function Dashboard({ activities, dailyMetrics = [], onSyncGarmin,
         )}
       </div>
 
+      {latestHevySession && (
+        <div className="pt-6 border-t border-subtle">
+          <h2 className="text-lg font-bold text-primary tracking-tight flex items-center gap-2 mb-4">
+            <Dumbbell className="h-5 w-5 text-accent-cyan" />
+            Ultimo Allenamento Forza
+          </h2>
+          <div 
+            className="clean-panel p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-6 cursor-pointer hover:shadow-md transition-shadow relative overflow-hidden" 
+            onClick={onNavigateToHistory}
+          >
+            <div className="absolute -right-10 -top-10 opacity-5 pointer-events-none">
+              <Dumbbell className="w-48 h-48 text-accent-cyan" strokeWidth={1} />
+            </div>
+            
+            <div className="relative z-10 flex-1">
+              <div className="flex items-center gap-3 mb-2">
+                <span className="mac-popover bg-[var(--surface-popover)] text-primary text-[9px] px-2.5 py-1.5 rounded-full font-bold uppercase tracking-widest flex items-center gap-1.5 shadow-sm">
+                  <Dumbbell className="h-3 w-3 text-accent-cyan" />
+                  Hevy
+                </span>
+                <p className="text-xs font-medium text-secondary">
+                  {new Date(latestHevySession.start_time).toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' })}
+                </p>
+              </div>
+              <h3 className="text-2xl font-bold text-primary mb-1 truncate">{latestHevySession.title}</h3>
+            </div>
+            
+            <div className="relative z-10 flex items-center gap-6 sm:gap-8 border-t sm:border-t-0 sm:border-l border-subtle pt-4 sm:pt-0 sm:pl-8">
+              <div>
+                <span className="text-[9px] text-muted uppercase block tracking-widest font-bold mb-1">Volume</span>
+                <span className="font-display font-bold text-3xl text-accent-cyan block leading-none tracking-tighter">
+                  {latestHevySession.volume_kg > 1000 ? (latestHevySession.volume_kg / 1000).toFixed(1) : latestHevySession.volume_kg}
+                  <span className="text-[12px] text-secondary font-sans font-medium uppercase tracking-normal ml-1">
+                    {latestHevySession.volume_kg > 1000 ? 't' : 'kg'}
+                  </span>
+                </span>
+              </div>
+              <div>
+                <span className="text-[9px] text-muted uppercase block tracking-widest font-bold mb-1">Esercizi</span>
+                <span className="font-display font-bold text-3xl text-primary block leading-none tracking-tighter">
+                  {latestHevySession.exercise_count}
+                  <span className="text-[12px] text-secondary font-sans font-medium uppercase tracking-normal ml-1">sets</span>
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* AI Coach Section */}
       <AiCoach />
 
@@ -457,7 +536,7 @@ export default function Dashboard({ activities, dailyMetrics = [], onSyncGarmin,
           </div>
         </div>
 
-        {/* Stats Strip */}
+        {/* Running Stats Strip */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
             { label: 'Distanza', icon: Zap, iconColor: 'text-accent-lime', value: rangeStats.totalKm.toFixed(1), unit: 'km', delta: rangeStats.deltaKm, positiveGood: true },
@@ -475,6 +554,32 @@ export default function Dashboard({ activities, dailyMetrics = [], onSyncGarmin,
                 <span className="text-xs text-muted">{s.unit}</span>
                 {s.delta !== undefined && s.delta !== null && (
                   <span className={`text-[10px] font-mono whitespace-nowrap ${s.positiveGood ? (s.delta >= 0 ? 'text-accent-lime' : 'text-accent-rose') : ''}`}>
+                    {s.delta >= 0 ? '+' : ''}{s.delta.toFixed(1)}
+                  </span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Hevy Stats Strip */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[
+            { label: 'Volume Sollevato', icon: Dumbbell, iconColor: 'text-accent-cyan', value: hevyRangeStats.totalVolume > 1000 ? (hevyRangeStats.totalVolume / 1000).toFixed(1) : hevyRangeStats.totalVolume, unit: hevyRangeStats.totalVolume > 1000 ? 'tonnellate' : 'kg', delta: hevyRangeStats.deltaVolume, positiveGood: true },
+            { label: 'Tempo Forza', icon: Clock, iconColor: 'text-secondary', value: (hevyRangeStats.totalMin / 60).toFixed(1), unit: 'h' },
+            { label: 'Esercizi', icon: Activity, iconColor: 'text-primary', value: hevyRangeStats.totalExercises, unit: 'sets' },
+            { label: 'Sessioni Gym', icon: Calendar, iconColor: 'text-secondary', value: hevyRangeStats.count, unit: 'workout' },
+          ].map((s, i) => (
+            <div key={`hevy-${i}`} className="clean-panel p-5 flex flex-col justify-between h-28 hover:shadow-sm transition-shadow">
+              <div className="flex items-center justify-between text-secondary">
+                <span className="text-xs font-medium tracking-tight">{s.label}</span>
+                <s.icon className={`h-4 w-4 ${s.iconColor}`} />
+              </div>
+              <div className="flex flex-wrap items-baseline gap-x-1.5 mt-2">
+                <span className="text-2xl font-semibold font-mono text-primary tracking-tight">{s.value}</span>
+                <span className="text-xs text-muted">{s.unit}</span>
+                {s.delta !== undefined && s.delta !== null && (
+                  <span className={`text-[10px] font-mono whitespace-nowrap ${s.positiveGood ? (s.delta >= 0 ? 'text-accent-cyan' : 'text-accent-rose') : ''}`}>
                     {s.delta >= 0 ? '+' : ''}{s.delta.toFixed(1)}
                   </span>
                 )}

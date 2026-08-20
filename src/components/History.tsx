@@ -11,6 +11,7 @@ import ActivityCharts from './ActivityCharts.tsx';
 
 interface HistoryProps {
   activities: ActivityType[];
+  hevySessions?: any[];
   onUploadTcx: (files: File[]) => Promise<void>;
   isUploading: boolean;
   uploadError: string | null;
@@ -41,7 +42,7 @@ const traverseFileTree = async (entry: any, fileList: File[]): Promise<void> => 
   }
 };
 
-export default function History({ activities, onUploadTcx, isUploading, uploadError, uploadSuccess, onActivitySelect }: HistoryProps) {
+export default function History({ activities, hevySessions = [], onUploadTcx, isUploading, uploadError, uploadSuccess, onActivitySelect }: HistoryProps) {
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
@@ -72,27 +73,51 @@ export default function History({ activities, onUploadTcx, isUploading, uploadEr
     sliderIndex * ITEMS_PER_SLIDE + ITEMS_PER_SLIDE
   );
 
+  const [hevySliderIndex, setHevySliderIndex] = useState(0);
+  const totalHevySlides = Math.ceil(hevySessions.length / ITEMS_PER_SLIDE);
+  const visibleHevySessions = hevySessions.slice(
+    hevySliderIndex * ITEMS_PER_SLIDE,
+    hevySliderIndex * ITEMS_PER_SLIDE + ITEMS_PER_SLIDE
+  );
+
   const calendarGrid = useMemo(() => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
     const startDay = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1;
-    const activeDatesMap = new Map<string, ActivityType>();
+    
+    const activeDatesMap = new Map<string, { activity?: ActivityType, hevy?: any }>();
+    
     activities.forEach(a => {
       const d = new Date(a.date);
       const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-      activeDatesMap.set(k, a);
+      const entry = activeDatesMap.get(k) || {};
+      entry.activity = a;
+      activeDatesMap.set(k, entry);
     });
+
+    hevySessions.forEach(h => {
+      const d = new Date(h.start_time);
+      const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const entry = activeDatesMap.get(k) || {};
+      entry.hevy = h;
+      activeDatesMap.set(k, entry);
+    });
+
     const grid: any[] = [];
     for (let i = 0; i < startDay; i++) grid.push(null);
     for (let i = 1; i <= lastDay.getDate(); i++) {
       const k = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
       const now = new Date();
-      grid.push({ day: i, activity: activeDatesMap.get(k), isToday: now.getFullYear() === year && now.getMonth() === month && now.getDate() === i });
+      grid.push({ 
+        day: i, 
+        data: activeDatesMap.get(k), 
+        isToday: now.getFullYear() === year && now.getMonth() === month && now.getDate() === i 
+      });
     }
     return grid;
-  }, [activities, currentDate]);
+  }, [activities, hevySessions, currentDate]);
 
   const handleMonthChange = (d: 'prev' | 'next') => setCurrentDate(p => { const nd = new Date(p); nd.setMonth(nd.getMonth() + (d === 'next' ? 1 : -1)); return nd; });
 
@@ -276,6 +301,89 @@ export default function History({ activities, onUploadTcx, isUploading, uploadEr
         </section>
       )}
 
+      {/* Slider: Hevy Activities */}
+      {hevySessions.length > 0 && (
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-bold text-secondary uppercase tracking-widest flex items-center gap-2">
+              <Activity className="h-3.5 w-3.5" />
+              Sessioni di Forza
+              <span className="text-muted">({hevySessions.length})</span>
+            </span>
+            {totalHevySlides > 1 && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setHevySliderIndex(i => Math.max(0, i - 1))}
+                  disabled={hevySliderIndex === 0}
+                  className="h-7 w-7 flex items-center justify-center rounded-lg border border-subtle text-secondary hover:text-primary disabled:opacity-25 disabled:cursor-not-allowed transition-all"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <span className="text-[10px] font-mono text-muted tabular-nums">
+                  {hevySliderIndex + 1}/{totalHevySlides}
+                </span>
+                <button
+                  onClick={() => setHevySliderIndex(i => Math.min(totalHevySlides - 1, i + 1))}
+                  disabled={hevySliderIndex >= totalHevySlides - 1}
+                  className="h-7 w-7 flex items-center justify-center rounded-lg border border-subtle text-secondary hover:text-primary disabled:opacity-25 disabled:cursor-not-allowed transition-all"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            )}
+          </div>
+
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={`hevy-${hevySliderIndex}`}
+              initial={{ opacity: 0, x: 10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -10 }}
+              transition={{ duration: 0.18 }}
+              className="space-y-2"
+            >
+              {visibleHevySessions.map(act => (
+                <div
+                  key={act.id}
+                  onClick={() => onActivitySelect(act.id)}
+                  className="clean-panel flex items-center justify-between gap-4 px-5 py-4 hover:shadow-sm cursor-pointer transition-all group"
+                >
+                  <div className="flex items-center gap-5 min-w-0">
+                    <div className="flex items-end gap-0.5 shrink-0 w-[68px]">
+                      <span className="text-3xl font-display font-bold text-primary group-hover:text-accent-cyan transition-colors tracking-tighter">
+                        {act.volume_kg > 1000 ? (act.volume_kg / 1000).toFixed(1) : act.volume_kg}
+                      </span>
+                      <span className="text-[10px] font-bold uppercase text-muted mb-0.5">
+                        {act.volume_kg > 1000 ? 't' : 'kg'}
+                      </span>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-primary truncate">{act.title}</p>
+                      <p className="text-[10px] text-secondary mt-0.5 uppercase tracking-wider">
+                        {new Date(act.start_time).toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'short' })}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-5 shrink-0">
+                    <div className="hidden sm:block text-right">
+                      <span className="text-[9px] block text-muted uppercase font-sans tracking-widest">Esercizi</span>
+                      <span className="font-bold text-secondary font-mono text-sm block">{act.exercise_count}</span>
+                    </div>
+                    <div className="hidden sm:block text-right">
+                      <span className="text-[9px] block text-muted uppercase font-sans tracking-widest">Durata</span>
+                      <span className="font-bold text-secondary font-mono text-sm block">
+                        {Math.round((new Date(act.end_time).getTime() - new Date(act.start_time).getTime()) / 60000)}m
+                      </span>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-muted group-hover:text-primary transition-colors" />
+                  </div>
+                </div>
+              ))}
+            </motion.div>
+          </AnimatePresence>
+        </section>
+      )}
+
       {/* Bottom: Upload + Calendar */}
       <section className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-subtle">
         
@@ -373,11 +481,17 @@ export default function History({ activities, onUploadTcx, isUploading, uploadEr
               {calendarGrid.map((dayObj, i) => (
                 <div key={i} className="aspect-square">
                   {dayObj === null ? <div className="w-full h-full" /> :
-                    dayObj.activity ? (
+                    dayObj.data ? (
                       <button
-                        onClick={() => onActivitySelect(dayObj.activity!.id)}
-                        className="w-full h-full rounded-md bg-[#CCFF00] text-black font-extrabold shadow-[0_0_8px_rgba(204,255,0,0.4)] hover:opacity-90 transition-opacity flex items-center justify-center text-[10px] font-mono"
-                        title={dayObj.activity.name}
+                        onClick={() => onActivitySelect(dayObj.data.activity?.id || dayObj.data.hevy?.id)}
+                        className={`w-full h-full rounded-md font-extrabold flex items-center justify-center text-[10px] font-mono hover:opacity-90 transition-opacity shadow-sm ${
+                          dayObj.data.activity && dayObj.data.hevy 
+                            ? 'bg-gradient-to-br from-[#CCFF00] to-[#06b6d4] text-black shadow-[0_0_8px_rgba(204,255,0,0.3)]'
+                            : dayObj.data.activity 
+                              ? 'bg-[#CCFF00] text-black shadow-[0_0_8px_rgba(204,255,0,0.4)]'
+                              : 'bg-[#06b6d4] text-white shadow-[0_0_8px_rgba(6,182,212,0.4)]'
+                        }`}
+                        title={dayObj.data.activity?.name || dayObj.data.hevy?.title}
                       >
                         {dayObj.day}
                       </button>

@@ -460,3 +460,31 @@ export async function saveDailyHealthAnalysis(analysis: any): Promise<void> {
     console.error('Error saving daily health analysis to Supabase:', error);
   }
 }
+
+export async function getHevySessions(): Promise<any[]> {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('hevy_sessions')
+      .select('*')
+      .order('start_time', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching hevy sessions from Supabase:', error);
+    return [];
+  }
+}
+
+export async function saveHevySessions(sessions: any[]): Promise<void> {
+  try {
+    const { error } = await supabaseAdmin
+      .from('hevy_sessions')
+      .upsert(sessions, { onConflict: 'id' });
+
+    if (error) throw error;
+  } catch (error) {
+    console.error('Error saving hevy sessions to Supabase:', error);
+    throw error;
+  }
+}

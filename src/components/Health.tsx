@@ -15,6 +15,7 @@ import { MinimalTooltip } from './Dashboard';
 interface HealthProps {
   dailyMetrics: any[];
   activities?: any[];
+  hevySessions?: any[];
   onSelectActivity?: (activityId: string) => void;
   onSyncGarmin?: (dateStr?: string) => void | Promise<void>;
 }
@@ -94,7 +95,7 @@ const getTrend = (key: string, currentVal: number | null | undefined, dailyMetri
   return { percent, isGood };
 };
 
-const calculateSleepScore = (metrics: any) => {
+const calculateSleepScore = (metrics: any, hevySessions?: any[]) => {
   if (!metrics || !metrics.sleep_duration) return null;
 
   const durationMin = metrics.sleep_duration;
@@ -136,6 +137,25 @@ const calculateSleepScore = (metrics: any) => {
   if (remPct < 0.05) finalScore *= 0.85;       
   if (deepPct < 0.05) finalScore *= 0.85;      
 
+  // ----- Hevy Readiness Impact -----
+  // If user lifted heavy weights yesterday, readiness drops to account for muscular fatigue
+  if (hevySessions && metrics.date) {
+    const today = new Date(metrics.date);
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yStr = yesterday.toISOString().split('T')[0];
+    
+    const yesterdaysHevy = hevySessions.filter(h => h.start_time.startsWith(yStr));
+    let totalVolume = 0;
+    yesterdaysHevy.forEach(h => totalVolume += h.volume_kg);
+    
+    // Penalize score by up to 15 points based on volume (e.g. 10,000kg = -15 points)
+    if (totalVolume > 0) {
+      const penalty = Math.min(15, (totalVolume / 10000) * 15);
+      finalScore -= penalty;
+    }
+  }
+
   finalScore = Math.min(100, Math.max(0, Math.round(finalScore)));
 
   let label = "Scarso";
@@ -146,7 +166,7 @@ const calculateSleepScore = (metrics: any) => {
   return { finalScore, label };
 };
 
-export default function Health({ dailyMetrics = [], activities = [], onSelectActivity, onSyncGarmin }: HealthProps) {
+export default function Health({ dailyMetrics = [], activities = [], hevySessions = [], onSelectActivity, onSyncGarmin }: HealthProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [correlationType, setCorrelationType] = useState<'rhr' | 'stress'>('rhr');
   const [weatherData, setWeatherData] = useState<DetailedWeatherData | null>(null);
@@ -313,9 +333,9 @@ export default function Health({ dailyMetrics = [], activities = [], onSelectAct
   }, [dailyMetrics, selectedIndex]);
 
   const sleepScoreData = useMemo(() => {
-    if (currentMetrics) return calculateSleepScore(currentMetrics);
+    if (currentMetrics) return calculateSleepScore(currentMetrics, hevySessions);
     return null;
-  }, [currentMetrics]);
+  }, [currentMetrics, hevySessions]);
 
   const weightHistoryData = useMemo(() => {
     if (!dailyMetrics || dailyMetrics.length === 0) return [];

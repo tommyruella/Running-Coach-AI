@@ -2,23 +2,24 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   ArrowLeft, Watch, Clock, Thermometer, Droplets,
-  CloudSun, Flame, Activity as ActivityIcon, ChevronDown, ChevronUp
+  CloudSun, Flame, Activity as ActivityIcon, ChevronDown, ChevronUp, Dumbbell
 } from 'lucide-react';
 import { Activity as ActivityType } from '../types.js';
 import ActivityCharts from './ActivityCharts.tsx';
 
 interface ActivityDetailProps {
-  activity: ActivityType;
+  activity?: ActivityType;
+  hevySession?: any;
   onBack: () => void;
 }
 
-export default function ActivityDetail({ activity: initialActivity, onBack }: ActivityDetailProps) {
+export default function ActivityDetail({ activity: initialActivity, hevySession, onBack }: ActivityDetailProps) {
   const [lapsOpen, setLapsOpen] = useState(false);
-  const [activity, setActivity] = useState<ActivityType>(initialActivity);
-  const [isLoading, setIsLoading] = useState(!initialActivity.trackpoints);
+  const [activity, setActivity] = useState<ActivityType | undefined>(initialActivity);
+  const [isLoading, setIsLoading] = useState(!!initialActivity && !initialActivity.trackpoints);
 
   React.useEffect(() => {
-    if (!initialActivity.trackpoints) {
+    if (initialActivity && !initialActivity.trackpoints) {
       setIsLoading(true);
       fetch(`/api/activities/${initialActivity.id}`)
         .then(res => res.json())
@@ -35,6 +36,127 @@ export default function ActivityDetail({ activity: initialActivity, onBack }: Ac
       setIsLoading(false);
     }
   }, [initialActivity]);
+
+  if (hevySession) {
+    const dateStr = new Date(hevySession.start_time).toLocaleDateString('it-IT', {
+      weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+    });
+    const startTimeStr = new Date(hevySession.start_time).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+    const durationMin = Math.round((new Date(hevySession.end_time).getTime() - new Date(hevySession.start_time).getTime()) / 60000);
+
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -10 }}
+        transition={{ duration: 0.25 }}
+        className="pb-16"
+      >
+        <div className="flex items-start gap-4 mb-6">
+          <button
+            onClick={onBack}
+            className="h-10 w-10 shrink-0 flex items-center justify-center clean-panel text-primary hover:bg-surface-inset rounded-xl transition-all cursor-pointer shadow-sm"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="clean-panel relative overflow-hidden mb-6 p-6 sm:p-8">
+          <div className="absolute -right-10 -top-10 opacity-5 pointer-events-none">
+            <Dumbbell className="w-64 h-64 text-accent-cyan" strokeWidth={1} />
+          </div>
+          <div className="relative z-10 flex flex-col sm:flex-row sm:items-end justify-between gap-6">
+            <div>
+              <div className="flex items-center gap-3 mb-3">
+                <span className="mac-popover bg-[var(--surface-popover)] text-primary text-[9px] px-2.5 py-1.5 rounded-full font-bold uppercase tracking-widest flex items-center gap-1.5 shadow-sm">
+                  <Dumbbell className="h-3 w-3 text-accent-cyan" />
+                  Forza (Hevy)
+                </span>
+                <p className="text-xs font-medium text-secondary flex items-center gap-1.5">
+                  <Clock className="h-3 w-3" />
+                  {startTimeStr}
+                </p>
+              </div>
+              <h1 className="text-3xl sm:text-5xl font-display font-black text-primary tracking-tight leading-tight mb-2">
+                {hevySession.title}
+              </h1>
+              <p className="text-sm font-medium text-secondary">
+                {dateStr}
+              </p>
+            </div>
+            
+            <div className="flex items-center gap-6 sm:gap-8 border-t sm:border-t-0 sm:border-l border-subtle pt-4 sm:pt-0 sm:pl-8 shrink-0">
+              <div>
+                <span className="text-[9px] text-muted uppercase block tracking-widest font-bold mb-1">Volume</span>
+                <span className="font-display font-bold text-3xl sm:text-4xl text-accent-cyan block leading-none tracking-tighter">
+                  {hevySession.volume_kg > 1000 ? (hevySession.volume_kg / 1000).toFixed(1) : hevySession.volume_kg}
+                  <span className="text-[12px] text-secondary font-sans font-medium uppercase tracking-normal ml-1">
+                    {hevySession.volume_kg > 1000 ? 't' : 'kg'}
+                  </span>
+                </span>
+              </div>
+              <div>
+                <span className="text-[9px] text-muted uppercase block tracking-widest font-bold mb-1">Durata</span>
+                <span className="font-display font-bold text-3xl sm:text-4xl text-primary block leading-none tracking-tighter">
+                  {durationMin}
+                  <span className="text-[12px] text-secondary font-sans font-medium uppercase tracking-normal ml-1">m</span>
+                </span>
+              </div>
+              <div>
+                <span className="text-[9px] text-muted uppercase block tracking-widest font-bold mb-1">Esercizi</span>
+                <span className="font-display font-bold text-3xl sm:text-4xl text-primary block leading-none tracking-tighter">
+                  {hevySession.exercise_count}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {hevySession.exercises && hevySession.exercises.length > 0 ? (
+          <div className="space-y-4">
+            <h3 className="text-[10px] font-bold text-secondary uppercase tracking-widest flex items-center gap-2 mb-3">
+              Dettaglio Esercizi
+            </h3>
+            {hevySession.exercises.map((ex: any, idx: number) => (
+              <div key={idx} className="clean-panel overflow-hidden">
+                <div className="px-5 py-3 bg-surface-inset border-b border-subtle">
+                  <span className="text-sm font-bold text-primary">{ex.title}</span>
+                </div>
+                <table className="w-full text-left text-sm whitespace-nowrap">
+                  <thead>
+                    <tr className="text-[9px] text-muted uppercase tracking-widest">
+                      <th className="py-2.5 px-5 font-bold">Set</th>
+                      <th className="py-2.5 px-5 font-bold">Kg</th>
+                      <th className="py-2.5 px-5 font-bold">Reps</th>
+                    </tr>
+                  </thead>
+                  <tbody className="font-mono text-secondary">
+                    {ex.sets.map((set: any, sIdx: number) => (
+                      <tr key={sIdx} className="border-t border-subtle hover:bg-surface-inset transition-colors">
+                        <td className="py-2.5 px-5 text-muted font-bold flex items-center gap-2">
+                          <span className={`w-1.5 h-1.5 rounded-full ${set.type === 'warmup' ? 'bg-accent-amber' : 'bg-accent-cyan'}`} />
+                          {set.index + 1}
+                        </td>
+                        <td className="py-2.5 px-5 font-bold text-primary">{set.weight_kg > 0 ? set.weight_kg : '--'}</td>
+                        <td className="py-2.5 px-5 font-bold">{set.reps}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="clean-panel px-5 py-8 text-center text-secondary">
+            <ActivityIcon className="h-8 w-8 mx-auto mb-3 text-muted" />
+            <p className="text-sm">I dettagli degli esercizi non sono stati salvati per questa sessione.</p>
+          </div>
+        )}
+      </motion.div>
+    );
+  }
+
+  if (!activity) return null;
 
   const formatDuration = (totalSeconds: number) => {
     const h = Math.floor(totalSeconds / 3600);
@@ -104,15 +226,13 @@ export default function ActivityDetail({ activity: initialActivity, onBack }: Ac
       className="pb-16"
       id="activity-detail-page"
     >
-      <div className="flex items-start gap-4 mb-8">
+      <div className="flex items-start gap-4 mb-6">
         <button
           onClick={onBack}
-          className="h-10 w-10 shrink-0 flex items-center justify-center clean-panel text-primary hover:bg-surface-inset rounded-xl transition-all cursor-pointer mt-1 shadow-sm"
+          className="h-10 w-10 shrink-0 flex items-center justify-center clean-panel text-primary hover:bg-surface-inset rounded-xl transition-all cursor-pointer shadow-sm"
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <div className="flex-1" />
-        <h2 className="text-lg font-bold">Dettagli</h2>
       </div>
 
       {isLoading ? (
@@ -122,39 +242,49 @@ export default function ActivityDetail({ activity: initialActivity, onBack }: Ac
         </div>
       ) : (
         <>
-          <div className="min-w-0 mb-6">
-            <h1 className="text-3xl sm:text-4xl font-display font-black text-primary tracking-tight truncate leading-tight">
-              {activity.name}
-            </h1>
-            <p className="text-xs text-secondary flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 font-medium tracking-wide">
-              <span>{dateStr}</span>
-              {departureTime && (
-                <span className="flex items-center gap-1">
-                  <Clock className="h-3 w-3" />
-                  {departureTime}
-                </span>
-              )}
-              {activity.deviceModel && (
-                <span className="flex items-center gap-1 text-primary">
-                  <Watch className="h-3 w-3" />
-                  {activity.deviceModel}
-                </span>
-              )}
-            </p>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-            {metrics.map(m => (
-              <div key={m.label} className="clean-panel px-5 py-4">
-                <span className="text-[10px] text-muted uppercase tracking-widest font-sans block mb-2 font-medium">{m.label}</span>
-                <div className="flex items-end gap-1">
-                  <span className={`text-2xl sm:text-3xl font-display font-bold leading-none tracking-tighter ${m.accent || 'text-primary'}`}>
-                    {m.value}
+          <div className="clean-panel relative overflow-hidden mb-6 p-6 sm:p-8">
+            <div className="absolute -right-10 -top-10 opacity-5 pointer-events-none">
+              <ActivityIcon className="w-64 h-64 text-accent-lime" strokeWidth={1} />
+            </div>
+            
+            <div className="relative z-10 flex flex-col xl:flex-row xl:items-end justify-between gap-6">
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-3 mb-3">
+                  <span className="mac-popover bg-[var(--surface-popover)] text-primary text-[9px] px-2.5 py-1.5 rounded-full font-bold uppercase tracking-widest flex items-center gap-1.5 shadow-sm">
+                    <ActivityIcon className="h-3 w-3 text-accent-lime" />
+                    Corsa
                   </span>
-                  {m.unit && <span className="text-[10px] font-bold uppercase text-muted mb-0.5">{m.unit}</span>}
+                  <p className="text-xs font-medium text-secondary flex items-center gap-1.5">
+                    <Clock className="h-3 w-3" />
+                    {departureTime || '--:--'}
+                  </p>
+                  {activity.deviceModel && (
+                    <span className="text-xs font-medium text-primary flex items-center gap-1.5">
+                      <Watch className="h-3 w-3 text-muted" />
+                      {activity.deviceModel}
+                    </span>
+                  )}
                 </div>
+                <h1 className="text-3xl sm:text-5xl font-display font-black text-primary tracking-tight leading-tight mb-2 truncate" title={activity.name}>
+                  {activity.name}
+                </h1>
+                <p className="text-sm font-medium text-secondary">
+                  {dateStr}
+                </p>
               </div>
-            ))}
+              
+              <div className="flex flex-wrap items-center gap-6 sm:gap-8 border-t xl:border-t-0 xl:border-l border-subtle pt-4 xl:pt-0 xl:pl-8 shrink-0">
+                {metrics.map(m => (
+                  <div key={m.label}>
+                    <span className="text-[9px] text-muted uppercase block tracking-widest font-bold mb-1">{m.label}</span>
+                    <span className={`font-display font-bold text-3xl sm:text-4xl block leading-none tracking-tighter ${m.accent || 'text-primary'}`}>
+                      {m.value}
+                      {m.unit && <span className="text-[12px] text-secondary font-sans font-medium uppercase tracking-normal ml-1">{m.unit}</span>}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
 
           {hasGps && (

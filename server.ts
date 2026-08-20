@@ -155,7 +155,7 @@ app.get('/api/stats', async (req, res) => {
  */
 app.get('/api/activities', async (req, res) => {
   try {
-    const limit = parseInt(req.query.limit as string || '50', 10);
+    const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 10000;
     const activities = await getActivities();
     // Sort activities by date descending
     const sorted = [...activities].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -798,6 +798,50 @@ app.post('/api/garmin/sync', async (req, res) => {
       msg = 'Garmin Connect sta temporaneamente limitando gli accessi frequenti (Anti-Bot Cloudflare). Le credenziali sono salvate e la sessione è pronta: riprova tra qualche minuto!';
     }
     res.status(500).json({ error: msg });
+  }
+});
+
+import { getHevySessions } from './server/db.js';
+
+/**
+ * 9. API: Hevy Sync & Metrics
+ */
+app.get('/api/hevy/sessions', async (req, res) => {
+  try {
+    const sessions = await getHevySessions();
+    
+    // Check if user has no data in DB
+    if (sessions.length === 0) {
+      // Return mock data for UI testing if no DB data is present
+      return res.json({
+        success: true,
+        sessions: [
+          {
+            id: "mock1",
+            title: "Upper Body Power",
+            start_time: new Date(Date.now() - 86400000).toISOString(),
+            end_time: new Date(Date.now() - 86400000 + 3600000).toISOString(),
+            volume_kg: 8500,
+            exercise_count: 6
+          },
+          {
+            id: "mock2",
+            title: "Leg Day",
+            start_time: new Date(Date.now() - 3 * 86400000).toISOString(),
+            end_time: new Date(Date.now() - 3 * 86400000 + 4200000).toISOString(),
+            volume_kg: 12400,
+            exercise_count: 5
+          }
+        ],
+        isMock: true,
+        isLocal: false
+      });
+    }
+
+    res.json({ success: true, sessions, isMock: false, isLocal: false });
+  } catch (error: any) {
+    console.error('Errore durante il recupero sessioni Hevy:', error);
+    res.status(500).json({ error: error.message || 'Impossibile recuperare le sessioni Hevy.' });
   }
 });
 

@@ -48,6 +48,8 @@ export default function App() {
     avgHr: 0
   });
 
+  const [hevySessions, setHevySessions] = useState<any[]>(() => JSON.parse(localStorage.getItem('cachedHevySessions') || '[]'));
+
   const [isSending, setIsSending] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -55,11 +57,12 @@ export default function App() {
 
   const fetchData = async () => {
     try {
-      const [statsRes, actRes, chatRes, metricsRes] = await Promise.all([
+      const [statsRes, actRes, chatRes, metricsRes, hevyRes] = await Promise.all([
         fetch('/api/stats'),
-        fetch('/api/activities?limit=100'),
+        fetch('/api/activities?limit=10000'),
         fetch('/api/chat-history'),
-        fetch('/api/metrics/daily')
+        fetch('/api/metrics/daily'),
+        fetch('/api/hevy/sessions')
       ]);
 
       if (statsRes.ok) {
@@ -81,6 +84,11 @@ export default function App() {
         const m = await metricsRes.json();
         setDailyMetrics(m);
         localStorage.setItem('cachedDailyMetrics', JSON.stringify(m));
+      }
+      if (hevyRes.ok) {
+        const h = (await hevyRes.json()).sessions || [];
+        setHevySessions(h);
+        localStorage.setItem('cachedHevySessions', JSON.stringify(h));
       }
     } catch (error) {
       console.error('Error loading data:', error);
@@ -185,6 +193,7 @@ export default function App() {
               <Dashboard
                 stats={stats}
                 activities={activities}
+                hevySessions={hevySessions}
                 dailyMetrics={dailyMetrics}
                 onSyncGarmin={async () => {
                   try {
@@ -208,6 +217,7 @@ export default function App() {
               <Health
                 dailyMetrics={dailyMetrics}
                 activities={activities}
+                hevySessions={hevySessions}
                 onSelectActivity={(id) => {
                   setSelectedActivityId(id);
                   setActiveTab('activity_detail');
@@ -236,12 +246,14 @@ export default function App() {
               />
             ) : activeTab === 'activity_detail' && selectedActivityId ? (
               <ActivityDetail
-                activity={activities.find(a => a.id === selectedActivityId)!}
+                activity={activities.find(a => a.id === selectedActivityId)}
+                hevySession={hevySessions.find(h => h.id === selectedActivityId)}
                 onBack={() => setActiveTab('history')}
               />
             ) : (
               <History
                 activities={activities}
+                hevySessions={hevySessions}
                 onUploadTcx={handleUploadTcx}
                 isUploading={isUploading}
                 uploadError={uploadError}
