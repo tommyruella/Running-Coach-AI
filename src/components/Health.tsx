@@ -222,7 +222,6 @@ const ReadinessRing = ({ score }: { score: number }) => {
           initial={{ strokeDashoffset: circumference }}
           animate={{ strokeDashoffset: targetOffset }}
           transition={{ duration: 1.5, ease: "easeOut" }}
-          style={{ filter: `drop-shadow(0 0 12px ${color}50)` }}
           strokeLinecap="round"
           r={normalizedRadius}
           cx={radius}
