@@ -166,6 +166,115 @@ const calculateSleepScore = (metrics: any, hevySessions?: any[]) => {
   return { finalScore, label };
 };
 
+// NEW ULTRA MINIMAL CAPSULE (No borders, pure typography)
+const getReadinessColor = (val?: number) => {
+  if (!val) return 'var(--color-primary)';
+  if (val >= 85) return '#10b981'; // Premium Emerald Green
+  if (val >= 70) return '#84cc16'; // Premium Lime Green
+  if (val >= 50) return '#f59e0b'; // Premium Amber Gold
+  if (val >= 30) return '#f97316'; // Premium Warm Orange
+  return '#ef4444'; // Premium Coral Red
+};
+
+const getReadinessComment = (val?: number) => {
+  if (!val) return "Dati insufficienti per valutare la readiness odierna.";
+  if (val >= 90) return "La tua readiness è ai massimi livelli. Sei perfettamente recuperato e pronto per affrontare sforzi intensi o superare i tuoi record.";
+  if (val >= 75) return "Ottima readiness. Il corpo ha recuperato bene ed è preparato per un allenamento produttivo e di qualità.";
+  if (val >= 50) return "Readiness moderata. Puoi allenarti, ma ascolta il tuo corpo e considera di ridurre l'intensità se avverti affaticamento.";
+  if (val >= 25) return "La tua readiness è bassa. Il recupero non è ottimale; valuta un allenamento leggero o una giornata di riposo attivo.";
+  return "Readiness molto bassa. Il tuo corpo ha un forte bisogno di recupero. È fortemente consigliato riposo o attività di scarico.";
+};
+
+const ReadinessRing = ({ score }: { score: number }) => {
+  const [animatedScore, setAnimatedScore] = useState(0);
+  
+  useEffect(() => {
+    const t = setTimeout(() => setAnimatedScore(score), 100);
+    return () => clearTimeout(t);
+  }, [score]);
+
+  const radius = 80;
+  const stroke = 12;
+  const normalizedRadius = radius - stroke / 2;
+  const circumference = normalizedRadius * 2 * Math.PI;
+  const strokeDashoffset = circumference - ((animatedScore || 0) / 100) * circumference;
+  const color = getReadinessColor(score);
+
+  const getLabel = (val?: number) => {
+    if (!val) return "";
+    if (val >= 90) return "Eccellente";
+    if (val >= 75) return "Ottimale";
+    if (val >= 50) return "Moderata";
+    if (val >= 25) return "Bassa";
+    return "Critica";
+  };
+
+  return (
+    <div className="relative flex items-center justify-center py-6">
+      <svg height={radius * 2} width={radius * 2} className="transform -rotate-90">
+        <circle
+          stroke="var(--border-subtle)"
+          fill="transparent"
+          strokeWidth={stroke}
+          r={normalizedRadius}
+          cx={radius}
+          cy={radius}
+        />
+        <circle
+          stroke={color}
+          fill="transparent"
+          strokeWidth={stroke}
+          strokeDasharray={circumference + ' ' + circumference}
+          style={{ strokeDashoffset, filter: `drop-shadow(0 0 12px ${color}50)` }}
+          strokeLinecap="round"
+          r={normalizedRadius}
+          cx={radius}
+          cy={radius}
+          className="transition-all duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)]"
+        />
+      </svg>
+      <div className="absolute flex flex-col items-center justify-center text-center">
+        <span className="text-[10px] font-bold uppercase tracking-widest text-secondary mb-1">Readiness</span>
+        <span className="text-5xl font-black font-mono leading-none" style={{ color }}>{score || '--'}</span>
+        <span className="text-[10px] font-bold uppercase tracking-widest mt-1" style={{ color }}>{getLabel(score)}</span>
+      </div>
+    </div>
+  );
+};
+
+const AiInsightAccordion = ({ analysis, title = "Analisi AI" }: any) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  if (!analysis) return null;
+  return (
+    <div className="mt-4 -mx-6 sm:-mx-8 -mb-6 sm:-mb-8 bg-[var(--surface-inset)] border-t border-[var(--border-subtle)] overflow-hidden transition-all duration-300 rounded-b-[11px]">
+      <button 
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="w-full flex items-center justify-between px-6 sm:px-8 py-4 cursor-pointer hover:bg-[var(--surface-card-alt)] transition-colors group"
+      >
+        <div className="flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-full bg-[var(--surface-card)] shadow-sm flex items-center justify-center border border-[var(--border-subtle)]">
+            <Sparkles className="w-3.5 h-3.5 text-[var(--accent-lime)]" />
+          </div>
+          <span className="text-sm font-semibold text-primary tracking-tight">{title}</span>
+        </div>
+        <div className="w-7 h-7 flex items-center justify-center bg-[var(--surface-card)] rounded-full border border-[var(--border-subtle)] shadow-sm">
+          <ChevronDown className={`w-4 h-4 text-secondary transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`} />
+        </div>
+      </button>
+      {isExpanded && (
+        <div className="px-6 sm:px-8 pb-6 pt-2 space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+          <div className="space-y-1.5">
+            <h4 className="text-xs font-bold text-primary uppercase tracking-widest">{analysis.trendStatus}</h4>
+            <p className="text-sm text-secondary leading-relaxed font-sans">
+              {analysis.insightText}
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 export default function Health({ dailyMetrics = [], activities = [], hevySessions = [], onSelectActivity, onSyncGarmin }: HealthProps) {
   const displayMetrics = useMemo(() => {
     if (!dailyMetrics || dailyMetrics.length === 0) {
@@ -668,114 +777,6 @@ export default function Health({ dailyMetrics = [], activities = [], hevySession
     return result;
   }, [displayMetrics, currentMetrics?.date]);
 
-  // NEW ULTRA MINIMAL CAPSULE (No borders, pure typography)
-  const getReadinessColor = (val?: number) => {
-    if (!val) return 'var(--color-primary)';
-    if (val >= 85) return '#10b981'; // Premium Emerald Green
-    if (val >= 70) return '#84cc16'; // Premium Lime Green
-    if (val >= 50) return '#f59e0b'; // Premium Amber Gold
-    if (val >= 30) return '#f97316'; // Premium Warm Orange
-    return '#ef4444'; // Premium Coral Red
-  };
-
-  const getReadinessComment = (val?: number) => {
-    if (!val) return "Dati insufficienti per valutare la readiness odierna.";
-    if (val >= 90) return "La tua readiness è ai massimi livelli. Sei perfettamente recuperato e pronto per affrontare sforzi intensi o superare i tuoi record.";
-    if (val >= 75) return "Ottima readiness. Il corpo ha recuperato bene ed è preparato per un allenamento produttivo e di qualità.";
-    if (val >= 50) return "Readiness moderata. Puoi allenarti, ma ascolta il tuo corpo e considera di ridurre l'intensità se avverti affaticamento.";
-    if (val >= 25) return "La tua readiness è bassa. Il recupero non è ottimale; valuta un allenamento leggero o una giornata di riposo attivo.";
-    return "Readiness molto bassa. Il tuo corpo ha un forte bisogno di recupero. È fortemente consigliato riposo o attività di scarico.";
-  };
-
-  const ReadinessRing = ({ score }: { score: number }) => {
-    const [animatedScore, setAnimatedScore] = useState(0);
-    
-    useEffect(() => {
-      const t = setTimeout(() => setAnimatedScore(score), 100);
-      return () => clearTimeout(t);
-    }, [score]);
-
-    const radius = 80;
-    const stroke = 12;
-    const normalizedRadius = radius - stroke / 2;
-    const circumference = normalizedRadius * 2 * Math.PI;
-    const strokeDashoffset = circumference - ((animatedScore || 0) / 100) * circumference;
-    const color = getReadinessColor(score);
-
-    const getLabel = (val?: number) => {
-      if (!val) return "";
-      if (val >= 90) return "Eccellente";
-      if (val >= 75) return "Ottimale";
-      if (val >= 50) return "Moderata";
-      if (val >= 25) return "Bassa";
-      return "Critica";
-    };
-
-    return (
-      <div className="relative flex items-center justify-center py-6">
-        <svg height={radius * 2} width={radius * 2} className="transform -rotate-90">
-          <circle
-            stroke="var(--border-subtle)"
-            fill="transparent"
-            strokeWidth={stroke}
-            r={normalizedRadius}
-            cx={radius}
-            cy={radius}
-          />
-          <circle
-            stroke={color}
-            fill="transparent"
-            strokeWidth={stroke}
-            strokeDasharray={circumference + ' ' + circumference}
-            style={{ strokeDashoffset, filter: `drop-shadow(0 0 12px ${color}50)` }}
-            strokeLinecap="round"
-            r={normalizedRadius}
-            cx={radius}
-            cy={radius}
-            className="transition-all duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)]"
-          />
-        </svg>
-        <div className="absolute flex flex-col items-center justify-center text-center">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-secondary mb-1">Readiness</span>
-          <span className="text-5xl font-black font-mono leading-none" style={{ color }}>{score || '--'}</span>
-          <span className="text-[10px] font-bold uppercase tracking-widest mt-1" style={{ color }}>{getLabel(score)}</span>
-        </div>
-      </div>
-    );
-  };
-
-  const AiInsightAccordion = ({ analysis, title = "Analisi AI" }: any) => {
-    const [isExpanded, setIsExpanded] = useState(false);
-    if (!analysis) return null;
-    return (
-      <div className="mt-4 -mx-6 sm:-mx-8 -mb-6 sm:-mb-8 bg-[var(--surface-inset)] border-t border-[var(--border-subtle)] overflow-hidden transition-all duration-300 rounded-b-[11px]">
-        <button 
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="w-full flex items-center justify-between px-6 sm:px-8 py-4 cursor-pointer hover:bg-[var(--surface-card-alt)] transition-colors group"
-        >
-          <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-full bg-[var(--surface-card)] shadow-sm flex items-center justify-center border border-[var(--border-subtle)]">
-              <Sparkles className="w-3.5 h-3.5 text-[var(--accent-lime)]" />
-            </div>
-            <span className="text-sm font-semibold text-primary tracking-tight">{title}</span>
-          </div>
-          <div className="w-7 h-7 flex items-center justify-center bg-[var(--surface-card)] rounded-full border border-[var(--border-subtle)] shadow-sm">
-            <ChevronDown className={`w-4 h-4 text-secondary transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`} />
-          </div>
-        </button>
-        {isExpanded && (
-          <div className="px-6 sm:px-8 pb-6 pt-2 space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
-            <div className="space-y-1.5">
-              <h4 className="text-xs font-bold text-primary uppercase tracking-widest">{analysis.trendStatus}</h4>
-              <p className="text-sm text-secondary leading-relaxed font-sans">
-                {analysis.insightText}
-              </p>
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  };
 
   const getDayLabel = (dateStr: string) => {
     const d = new Date(dateStr);
