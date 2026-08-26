@@ -24,8 +24,9 @@ interface DashboardProps {
   activities: ActivityType[];
   hevySessions?: any[];
   dailyMetrics?: any[];
-  onSyncGarmin?: () => void;
+  onSyncGarmin?: (targetDate?: any) => void;
   onNavigateToHistory: () => void;
+  onActivitySelect?: (id: string) => void;
   onSecretUnlock?: () => void;
 }
 
@@ -417,7 +418,7 @@ export default function Dashboard({ stats, activities, hevySessions = [], dailyM
 
         {/* Right: Latest Activity Map */}
         {latestActivity && (
-          <div className="flex-1 clean-panel overflow-hidden flex flex-col cursor-pointer transition-shadow hover:shadow-lg" onClick={onNavigateToHistory}>
+          <div className="flex-1 clean-panel overflow-hidden flex flex-col cursor-pointer transition-shadow hover:shadow-lg" onClick={() => onActivitySelect ? onActivitySelect(latestActivity.id) : onNavigateToHistory()}>
             {/* Full Bleed Map */}
             <div className="h-[200px] sm:h-[220px] w-full relative bg-[var(--window-bg)]">
               {mapBounds && latestTrackCoords ? (
@@ -470,7 +471,7 @@ export default function Dashboard({ stats, activities, hevySessions = [], dailyM
           </h2>
           <div 
             className="clean-panel p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-6 cursor-pointer hover:shadow-md transition-shadow relative overflow-hidden" 
-            onClick={onNavigateToHistory}
+            onClick={() => onActivitySelect ? onActivitySelect(latestHevySession.id) : onNavigateToHistory()}
           >
             <div className="absolute -right-10 -top-10 opacity-5 pointer-events-none">
               <Dumbbell className="w-48 h-48 text-accent-cyan" strokeWidth={1} />

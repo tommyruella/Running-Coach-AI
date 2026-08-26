@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Trash2, Edit2, Check, X, ShieldAlert, Unlink } from 'lucide-react';
 import { Activity, WeeklyPlan } from '../types.js';
+import HevyImportPanel from './HevyImportPanel.tsx';
 
 interface AdminProps {
   onClose: () => void;
 }
 
 export default function Admin({ onClose }: AdminProps) {
+  const [activeTab, setActiveTab] = useState<'runs' | 'hevy'>('runs');
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -120,8 +122,8 @@ export default function Admin({ onClose }: AdminProps) {
 
   return (
     <div className="w-full h-full flex flex-col p-4 md:p-8 animate-in fade-in zoom-in duration-300">
-      <div className="clean-panel border border-accent-rose/20 p-6 flex-1 flex flex-col min-h-0">
-        <div className="flex items-center justify-between mb-6">
+      <div className="clean-panel border border-accent-rose/20 flex-1 flex flex-col min-h-0 overflow-hidden">
+        <div className="flex items-center justify-between p-6 pb-4 border-b border-subtle">
           <div className="flex items-center gap-3 text-accent-rose">
             <ShieldAlert className="w-8 h-8" />
             <h1 className="text-2xl font-black uppercase tracking-widest text-primary">Admin Panel</h1>
@@ -133,103 +135,122 @@ export default function Admin({ onClose }: AdminProps) {
             <X className="w-5 h-5 text-secondary" />
           </button>
         </div>
+
+        <div className="flex border-b border-subtle">
+          <button 
+            onClick={() => setActiveTab('runs')} 
+            className={`flex-1 p-3 font-bold text-xs uppercase tracking-widest transition-colors ${activeTab === 'runs' ? 'border-b-2 border-accent-rose text-primary' : 'text-secondary hover:text-primary'}`}
+          >
+            Corse (Garmin)
+          </button>
+          <button 
+            onClick={() => setActiveTab('hevy')} 
+            className={`flex-1 p-3 font-bold text-xs uppercase tracking-widest transition-colors ${activeTab === 'hevy' ? 'border-b-2 border-accent-cyan text-primary' : 'text-secondary hover:text-primary'}`}
+          >
+            Import Hevy (Testo)
+          </button>
+        </div>
         
         {error && (
-          <div className="bg-red-500/10 text-accent-rose p-3 rounded-lg mb-4 text-sm font-medium border border-accent-rose/20">
+          <div className="bg-red-500/10 text-accent-rose p-3 mx-6 mt-6 rounded-lg text-sm font-medium border border-accent-rose/20">
             {error}
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
-          {loading ? (
-            <div className="flex justify-center p-8">
-              <div className="w-8 h-8 border-4 border-accent-rose border-t-transparent rounded-full animate-spin"></div>
-            </div>
-          ) : activities.length === 0 ? (
-            <div className="text-center text-muted p-8 font-medium">Nessuna attività trovata.</div>
-          ) : (
-            <div className="space-y-3">
-              {activities.map((activity) => (
-                <div key={activity.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-surface-inset border border-subtle rounded-xl gap-4 hover:shadow-sm transition-shadow">
-                  <div className="flex-1 min-w-0">
-                    <div className="text-xs text-secondary mb-1 font-medium">
-                      {new Date(activity.date).toLocaleDateString('it-IT', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                    </div>
-                    {editingId === activity.id ? (
-                      <div className="flex flex-col gap-2 w-full mt-2">
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="text"
-                            value={editName}
-                            onChange={(e) => setEditName(e.target.value)}
-                            className="bg-surface-card border border-accent-rose/50 rounded-lg px-3 py-1.5 text-sm text-primary focus:outline-none focus:border-accent-rose w-full shadow-sm"
-                            autoFocus
-                            onKeyDown={(e) => e.key === 'Enter' && handleRename(activity.id)}
-                            placeholder="Nome attività"
-                          />
-                          <button onClick={() => handleRename(activity.id)} className="p-1.5 bg-green-500/10 text-green-600 dark:text-green-400 rounded-lg hover:bg-green-500/20 shrink-0">
-                            <Check className="w-4 h-4" />
-                          </button>
-                          <button onClick={() => setEditingId(null)} className="p-1.5 bg-surface-card border border-subtle text-secondary rounded-lg hover:bg-surface-inset shrink-0">
-                            <X className="w-4 h-4" />
-                          </button>
-                        </div>
-                        {plan && plan.workouts.length > 0 && (
-                          <div className="flex items-center gap-2 mt-1">
-                            <select
-                              value={linkWorkoutId}
-                              onChange={(e) => setLinkWorkoutId(e.target.value)}
-                              className="bg-surface-card border border-subtle rounded-lg px-3 py-1.5 text-xs text-primary focus:outline-none focus:border-accent-cyan w-full max-w-[200px]"
-                            >
-                              <option value="">-- Associa al piano --</option>
-                              {plan.workouts.map(w => (
-                                <option key={w.id} value={w.id}>
-                                  {w.type} ({w.targetDistanceKm ? `${w.targetDistanceKm} km` : w.targetHrZone})
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        )}
+        <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
+          {activeTab === 'hevy' && <HevyImportPanel />}
+          
+          {activeTab === 'runs' && (
+            loading ? (
+              <div className="flex justify-center p-8">
+                <div className="w-8 h-8 border-4 border-accent-rose border-t-transparent rounded-full animate-spin"></div>
+              </div>
+            ) : activities.length === 0 ? (
+              <div className="text-center text-muted p-8 font-medium">Nessuna attività trovata.</div>
+            ) : (
+              <div className="space-y-3">
+                {activities.map((activity) => (
+                  <div key={activity.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-surface-inset border border-subtle rounded-xl gap-4 hover:shadow-sm transition-shadow">
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs text-secondary mb-1 font-medium">
+                        {new Date(activity.date).toLocaleDateString('it-IT', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                       </div>
-                    ) : (
-                      <div className="font-bold text-primary truncate">{activity.name}</div>
-                    )}
-                    <div className="text-sm text-secondary flex gap-3 mt-1 font-mono">
-                      <span>{activity.distanceKm} km</span>
-                      <span>{activity.durationMin} min</span>
-                    </div>
-                  </div>
-                  
-                  {editingId !== activity.id && (
-                    <div className="flex items-center gap-2 self-end sm:self-center">
-                      <button 
-                        onClick={() => startEditing(activity)}
-                        className="p-2 surface-inset border border-subtle rounded-lg text-secondary hover:text-primary transition-colors shadow-sm"
-                        title="Rinomina"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                      {activity.plannedWorkoutId && (
-                        <button 
-                          onClick={() => handleUnlink(activity.id, activity.plannedWorkoutId!)}
-                          className="p-2 surface-inset border border-subtle rounded-lg text-secondary hover:text-accent-cyan hover:border-accent-cyan/30 transition-colors shadow-sm"
-                          title="Scollega dal piano"
-                        >
-                          <Unlink className="w-4 h-4" />
-                        </button>
+                      {editingId === activity.id ? (
+                        <div className="flex flex-col gap-2 w-full mt-2">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              value={editName}
+                              onChange={(e) => setEditName(e.target.value)}
+                              className="bg-surface-card border border-accent-rose/50 rounded-lg px-3 py-1.5 text-sm text-primary focus:outline-none focus:border-accent-rose w-full shadow-sm"
+                              autoFocus
+                              onKeyDown={(e) => e.key === 'Enter' && handleRename(activity.id)}
+                              placeholder="Nome attività"
+                            />
+                            <button onClick={() => handleRename(activity.id)} className="p-1.5 bg-green-500/10 text-green-600 dark:text-green-400 rounded-lg hover:bg-green-500/20 shrink-0">
+                              <Check className="w-4 h-4" />
+                            </button>
+                            <button onClick={() => setEditingId(null)} className="p-1.5 bg-surface-card border border-subtle text-secondary rounded-lg hover:bg-surface-inset shrink-0">
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                          {plan && plan.workouts.length > 0 && (
+                            <div className="flex items-center gap-2 mt-1">
+                              <select
+                                value={linkWorkoutId}
+                                onChange={(e) => setLinkWorkoutId(e.target.value)}
+                                className="bg-surface-card border border-subtle rounded-lg px-3 py-1.5 text-xs text-primary focus:outline-none focus:border-accent-cyan w-full max-w-[200px]"
+                              >
+                                <option value="">-- Associa al piano --</option>
+                                {plan.workouts.map(w => (
+                                  <option key={w.id} value={w.id}>
+                                    {w.type} ({w.targetDistanceKm ? `${w.targetDistanceKm} km` : w.targetHrZone})
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="font-bold text-primary truncate">{activity.name}</div>
                       )}
-                      <button 
-                        onClick={() => handleDelete(activity.id)}
-                        className="p-2 surface-inset border border-subtle rounded-lg text-secondary hover:text-accent-rose hover:border-accent-rose/30 transition-colors shadow-sm"
-                        title="Elimina"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      <div className="text-sm text-secondary flex gap-3 mt-1 font-mono">
+                        <span>{activity.distanceKm} km</span>
+                        <span>{activity.durationMin} min</span>
+                      </div>
                     </div>
-                  )}
-                </div>
-              ))}
-            </div>
+                    
+                    {editingId !== activity.id && (
+                      <div className="flex items-center gap-2 self-end sm:self-center">
+                        <button 
+                          onClick={() => startEditing(activity)}
+                          className="p-2 surface-inset border border-subtle rounded-lg text-secondary hover:text-primary transition-colors shadow-sm"
+                          title="Rinomina"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        {activity.plannedWorkoutId && (
+                          <button 
+                            onClick={() => handleUnlink(activity.id, activity.plannedWorkoutId!)}
+                            className="p-2 surface-inset border border-subtle rounded-lg text-secondary hover:text-accent-cyan hover:border-accent-cyan/30 transition-colors shadow-sm"
+                            title="Scollega dal piano"
+                          >
+                            <Unlink className="w-4 h-4" />
+                          </button>
+                        )}
+                        <button 
+                          onClick={() => handleDelete(activity.id)}
+                          className="p-2 surface-inset border border-subtle rounded-lg text-secondary hover:text-accent-rose hover:border-accent-rose/30 transition-colors shadow-sm"
+                          title="Elimina"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )
           )}
         </div>
       </div>

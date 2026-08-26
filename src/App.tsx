@@ -48,51 +48,74 @@ export default function App() {
     avgHr: 0
   });
 
-  const [hevySessions, setHevySessions] = useState<any[]>(() => JSON.parse(localStorage.getItem('cachedHevySessions') || '[]'));
+  const [hevySessions, setHevySessions] = useState<any[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('cachedHevySessions') || '[]');
+    } catch {
+      return [];
+    }
+  });
 
   const [isSending, setIsSending] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
 
-  const fetchData = async () => {
-    try {
-      const [statsRes, actRes, chatRes, metricsRes, hevyRes] = await Promise.all([
-        fetch('/api/stats'),
-        fetch('/api/activities?limit=10000'),
-        fetch('/api/chat-history'),
-        fetch('/api/metrics/daily'),
-        fetch('/api/hevy/sessions')
-      ]);
+  const fetchData = () => {
+    // 1. Stats
+    fetch('/api/stats')
+      .then(res => res.ok ? res.json() : null)
+      .then(s => {
+        if (s) {
+          setStats(s);
+          localStorage.setItem('cachedStats', JSON.stringify(s));
+        }
+      })
+      .catch(console.error);
 
-      if (statsRes.ok) {
-        const s = await statsRes.json();
-        setStats(s);
-        localStorage.setItem('cachedStats', JSON.stringify(s));
-      }
-      if (actRes.ok) {
-        const a = (await actRes.json()).activities;
-        setActivities(a);
-        localStorage.setItem('cachedActivities', JSON.stringify(a));
-      }
-      if (chatRes.ok) {
-        const c = (await chatRes.json()).history;
-        setChatHistory(c);
-        localStorage.setItem('cachedChatHistory', JSON.stringify(c));
-      }
-      if (metricsRes.ok) {
-        const m = await metricsRes.json();
-        setDailyMetrics(m);
-        localStorage.setItem('cachedDailyMetrics', JSON.stringify(m));
-      }
-      if (hevyRes.ok) {
-        const h = (await hevyRes.json()).sessions || [];
-        setHevySessions(h);
-        localStorage.setItem('cachedHevySessions', JSON.stringify(h));
-      }
-    } catch (error) {
-      console.error('Error loading data:', error);
-    }
+    // 2. Activities
+    fetch('/api/activities?limit=10000')
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data?.activities) {
+          setActivities(data.activities);
+          localStorage.setItem('cachedActivities', JSON.stringify(data.activities));
+        }
+      })
+      .catch(console.error);
+
+    // 3. Chat history
+    fetch('/api/chat-history')
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data?.history) {
+          setChatHistory(data.history);
+          localStorage.setItem('cachedChatHistory', JSON.stringify(data.history));
+        }
+      })
+      .catch(console.error);
+
+    // 4. Daily metrics
+    fetch('/api/metrics/daily')
+      .then(res => res.ok ? res.json() : null)
+      .then(m => {
+        if (m) {
+          setDailyMetrics(m);
+          localStorage.setItem('cachedDailyMetrics', JSON.stringify(m));
+        }
+      })
+      .catch(console.error);
+
+    // 5. Hevy sessions
+    fetch('/api/hevy/sessions')
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data?.sessions) {
+          setHevySessions(data.sessions);
+          localStorage.setItem('cachedHevySessions', JSON.stringify(data.sessions));
+        }
+      })
+      .catch(console.error);
   };
 
   useEffect(() => {
@@ -211,6 +234,7 @@ export default function App() {
                   }
                 }}
                 onNavigateToHistory={() => setActiveTab('history')}
+                onActivitySelect={(id) => { setSelectedActivityId(id); setActiveTab('activity_detail'); }}
                 onSecretUnlock={() => setIsAdminOpen(true)}
               />
             ) : activeTab === 'health' ? (

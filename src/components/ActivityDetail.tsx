@@ -13,9 +13,17 @@ interface ActivityDetailProps {
   onBack: () => void;
 }
 
-export default function ActivityDetail({ activity: initialActivity, hevySession, onBack }: ActivityDetailProps) {
+export default function ActivityDetail({ activity: initialActivity, hevySession: initialHevySession, onBack }: ActivityDetailProps) {
   const [lapsOpen, setLapsOpen] = useState(false);
   const [activity, setActivity] = useState<ActivityType | undefined>(initialActivity);
+  const [hevySession, setHevySession] = useState<any>(() => {
+    if (!initialHevySession) return null;
+    let sess = { ...initialHevySession };
+    if (typeof sess.exercises === 'string') {
+      try { sess.exercises = JSON.parse(sess.exercises); } catch (e) {}
+    }
+    return sess;
+  });
   const [isLoading, setIsLoading] = useState(!!initialActivity && !initialActivity.trackpoints);
 
   React.useEffect(() => {
@@ -37,12 +45,41 @@ export default function ActivityDetail({ activity: initialActivity, hevySession,
     }
   }, [initialActivity]);
 
+  React.useEffect(() => {
+    if (initialHevySession) {
+      let sess = { ...initialHevySession };
+      if (typeof sess.exercises === 'string') {
+        try { sess.exercises = JSON.parse(sess.exercises); } catch (e) {}
+      }
+      setHevySession(sess);
+
+      // If exercises is missing or empty, fetch fresh from backend
+      if (!sess.exercises || sess.exercises.length === 0) {
+        fetch('/api/hevy/sessions')
+          .then(res => res.json())
+          .then(data => {
+            const found = (data.sessions || []).find((s: any) => s.id === sess.id);
+            if (found) {
+              let parsedExercises = found.exercises;
+              if (typeof parsedExercises === 'string') {
+                try { parsedExercises = JSON.parse(parsedExercises); } catch (e) {}
+              }
+              setHevySession({ ...found, exercises: parsedExercises });
+            }
+          })
+          .catch(console.error);
+      }
+    }
+  }, [initialHevySession]);
+
   if (hevySession) {
     const dateStr = new Date(hevySession.start_time).toLocaleDateString('it-IT', {
       weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
     });
     const startTimeStr = new Date(hevySession.start_time).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
     const durationMin = Math.round((new Date(hevySession.end_time).getTime() - new Date(hevySession.start_time).getTime()) / 60000);
+
+    const exercisesList = Array.isArray(hevySession.exercises) ? hevySession.exercises : [];
 
     return (
       <motion.div
@@ -105,46 +142,62 @@ export default function ActivityDetail({ activity: initialActivity, hevySession,
               <div>
                 <span className="text-[9px] text-muted uppercase block tracking-widest font-bold mb-1">Esercizi</span>
                 <span className="font-display font-bold text-3xl sm:text-4xl text-primary block leading-none tracking-tighter">
-                  {hevySession.exercise_count}
+                  {hevySession.exercise_count || exercisesList.length}
                 </span>
               </div>
             </div>
           </div>
         </div>
 
-        {hevySession.exercises && hevySession.exercises.length > 0 ? (
+        {exercisesList.length > 0 ? (
           <div className="space-y-4">
             <h3 className="text-[10px] font-bold text-secondary uppercase tracking-widest flex items-center gap-2 mb-3">
               Dettaglio Esercizi
             </h3>
-            {hevySession.exercises.map((ex: any, idx: number) => (
+            {exercisesList.map((ex: any, idx: number) => {
+              const setsList = Array.isArray(ex.sets) ? ex.sets : [];
+              return (
               <div key={idx} className="clean-panel overflow-hidden">
-                <div className="px-5 py-3 bg-surface-inset border-b border-subtle">
-                  <span className="text-sm font-bold text-primary">{ex.title}</span>
+                <div className="px-4 py-4 border-b border-subtle flex items-center justify-between bg-surface-inset/50">
+                  <span className="text-sm font-bold text-primary flex items-center gap-3">
+                    <span className="w-6 h-6 rounded-full bg-[var(--window-bg)] border border-subtle flex items-center justify-center text-[10px] text-secondary font-mono">
+                      {idx + 1}
+                    </span>
+                    {ex.title}
+                  </span>
+                  <span className="text-[9px] text-muted font-bold uppercase tracking-widest">
+                    {setsList.length} serie
+                  </span>
                 </div>
-                <table className="w-full text-left text-sm whitespace-nowrap">
-                  <thead>
-                    <tr className="text-[9px] text-muted uppercase tracking-widest">
-                      <th className="py-2.5 px-5 font-bold">Set</th>
-                      <th className="py-2.5 px-5 font-bold">Kg</th>
-                      <th className="py-2.5 px-5 font-bold">Reps</th>
-                    </tr>
-                  </thead>
-                  <tbody className="font-mono text-secondary">
-                    {ex.sets.map((set: any, sIdx: number) => (
-                      <tr key={sIdx} className="border-t border-subtle hover:bg-surface-inset transition-colors">
-                        <td className="py-2.5 px-5 text-muted font-bold flex items-center gap-2">
-                          <span className={`w-1.5 h-1.5 rounded-full ${set.type === 'warmup' ? 'bg-accent-amber' : 'bg-accent-cyan'}`} />
-                          {set.index + 1}
-                        </td>
-                        <td className="py-2.5 px-5 font-bold text-primary">{set.weight_kg > 0 ? set.weight_kg : '--'}</td>
-                        <td className="py-2.5 px-5 font-bold">{set.reps}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <div className="p-2 space-y-1">
+                  {setsList.map((set: any, sIdx: number) => (
+                    <div key={sIdx} className="flex items-center justify-between px-4 py-2 rounded-lg hover:bg-surface-inset transition-colors">
+                      <div className="flex items-center gap-3">
+                        <div 
+                          className={`w-2 h-2 rounded-full ${
+                            set.type === 'warmup' ? 'bg-accent-amber' : 
+                            (set.type === 'drop' || set.type === 'dropset') ? 'bg-accent-rose' : 
+                            'bg-accent-cyan'
+                          }`} 
+                        />
+                        <span className="text-xs font-bold text-muted uppercase tracking-widest">Set {set.index != null ? set.index + 1 : sIdx + 1}</span>
+                      </div>
+                      <div className="flex items-center gap-6 font-mono text-sm">
+                        <div className="text-right w-16">
+                          <span className="font-bold text-primary">{set.weight_kg > 0 ? set.weight_kg : '--'}</span>
+                          <span className="text-[10px] ml-1.5 text-muted uppercase">kg</span>
+                        </div>
+                        <div className="text-right w-14">
+                          <span className="font-bold text-primary">{set.reps}</span>
+                          <span className="text-[10px] ml-1.5 text-muted uppercase">reps</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
-            ))}
+            );
+            })}
           </div>
         ) : (
           <div className="clean-panel px-5 py-8 text-center text-secondary">

@@ -801,7 +801,7 @@ app.post('/api/garmin/sync', async (req, res) => {
   }
 });
 
-import { getHevySessions } from './server/db.js';
+import { getHevySessions, saveHevySessions } from './server/db.js';
 
 /**
  * 9. API: Hevy Sync & Metrics
@@ -822,7 +822,8 @@ app.get('/api/hevy/sessions', async (req, res) => {
             start_time: new Date(Date.now() - 86400000).toISOString(),
             end_time: new Date(Date.now() - 86400000 + 3600000).toISOString(),
             volume_kg: 8500,
-            exercise_count: 6
+            exercise_count: 6,
+            exercises: []
           },
           {
             id: "mock2",
@@ -830,18 +831,35 @@ app.get('/api/hevy/sessions', async (req, res) => {
             start_time: new Date(Date.now() - 3 * 86400000).toISOString(),
             end_time: new Date(Date.now() - 3 * 86400000 + 4200000).toISOString(),
             volume_kg: 12400,
-            exercise_count: 5
+            exercise_count: 7,
+            exercises: []
           }
         ],
-        isMock: true,
-        isLocal: false
+        isMock: true
       });
     }
 
-    res.json({ success: true, sessions, isMock: false, isLocal: false });
-  } catch (error: any) {
-    console.error('Errore durante il recupero sessioni Hevy:', error);
-    res.status(500).json({ error: error.message || 'Impossibile recuperare le sessioni Hevy.' });
+    res.json({ sessions, isMock: false });
+  } catch (error) {
+    console.error('Error fetching hevy sessions:', error);
+    res.status(500).json({ error: 'Failed to fetch hevy sessions' });
+  }
+});
+
+app.post('/api/hevy/sessions', express.json(), async (req, res) => {
+  try {
+    const { session } = req.body;
+    if (!session || !session.id) {
+      return res.status(400).json({ error: 'Invalid session data' });
+    }
+    
+    // Upsert the session to the DB
+    await saveHevySessions([session]);
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error saving hevy session:', error);
+    res.status(500).json({ error: 'Failed to save hevy session' });
   }
 });
 
