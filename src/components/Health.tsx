@@ -1,5 +1,6 @@
 import { generateHealthSectionAnalysis } from '../utils/healthAiEngine';
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
+import { motion } from 'motion/react';
 import { ChevronLeft, ChevronRight, MapPin, X, Loader2, ChevronDown, ChevronUp, Sparkles, Cloud, Sun, CloudRain } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -186,18 +187,11 @@ const getReadinessComment = (val?: number) => {
 };
 
 const ReadinessRing = ({ score }: { score: number }) => {
-  const [animatedScore, setAnimatedScore] = useState(0);
-  
-  useEffect(() => {
-    const t = setTimeout(() => setAnimatedScore(score), 100);
-    return () => clearTimeout(t);
-  }, [score]);
-
   const radius = 80;
   const stroke = 12;
   const normalizedRadius = radius - stroke / 2;
   const circumference = normalizedRadius * 2 * Math.PI;
-  const strokeDashoffset = circumference - ((animatedScore || 0) / 100) * circumference;
+  const targetOffset = circumference - ((score || 0) / 100) * circumference;
   const color = getReadinessColor(score);
 
   const getLabel = (val?: number) => {
@@ -220,17 +214,19 @@ const ReadinessRing = ({ score }: { score: number }) => {
           cx={radius}
           cy={radius}
         />
-        <circle
+        <motion.circle
           stroke={color}
           fill="transparent"
           strokeWidth={stroke}
           strokeDasharray={circumference + ' ' + circumference}
-          style={{ strokeDashoffset, filter: `drop-shadow(0 0 12px ${color}50)` }}
+          initial={{ strokeDashoffset: circumference }}
+          animate={{ strokeDashoffset: targetOffset }}
+          transition={{ duration: 1.5, ease: "easeOut" }}
+          style={{ filter: `drop-shadow(0 0 12px ${color}50)` }}
           strokeLinecap="round"
           r={normalizedRadius}
           cx={radius}
           cy={radius}
-          className="transition-all duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)]"
         />
       </svg>
       <div className="absolute flex flex-col items-center justify-center text-center">
