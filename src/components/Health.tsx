@@ -167,6 +167,31 @@ const calculateSleepScore = (metrics: any, hevySessions?: any[]) => {
 };
 
 export default function Health({ dailyMetrics = [], activities = [], hevySessions = [], onSelectActivity, onSyncGarmin }: HealthProps) {
+  const displayMetrics = useMemo(() => {
+    if (!dailyMetrics || dailyMetrics.length === 0) {
+      return [{ date: new Date().toISOString().split('T')[0], isGapPlaceholder: true }];
+    }
+    const sorted = [...dailyMetrics].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    const todayStr = new Date().toISOString().split('T')[0];
+    const oldestStr = sorted[sorted.length - 1].date.split('T')[0];
+    
+    const padded = [];
+    let current = new Date(todayStr);
+    const oldest = new Date(oldestStr);
+    
+    while (current >= oldest) {
+      const dStr = current.toISOString().split('T')[0];
+      const existing = sorted.find(m => m.date.startsWith(dStr));
+      if (existing) {
+        padded.push(existing);
+      } else {
+        padded.push({ date: dStr, isGapPlaceholder: true });
+      }
+      current.setDate(current.getDate() - 1);
+    }
+    return padded;
+  }, [dailyMetrics]);
+
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [correlationType, setCorrelationType] = useState<'rhr' | 'stress'>('rhr');
   const [weatherData, setWeatherData] = useState<DetailedWeatherData | null>(null);
@@ -184,7 +209,7 @@ export default function Health({ dailyMetrics = [], activities = [], hevySession
   const [inputLat, setInputLat] = useState('');
   const [inputLon, setInputLon] = useState('');
 
-  const currentMetrics = dailyMetrics[selectedIndex] || null;
+  const currentMetrics = displayMetrics[selectedIndex] || null;
   const [syncTargetDate, setSyncTargetDate] = useState<string>(() => currentMetrics?.date?.split('T')[0] || new Date().toISOString().split('T')[0]);
   const [visibleDaysCount, setVisibleDaysCount] = useState(14);
   const [isLoadingOlderDays, setIsLoadingOlderDays] = useState(false);
@@ -201,18 +226,18 @@ export default function Health({ dailyMetrics = [], activities = [], hevySession
       return;
     }
 
-    if (selectedIndex < visibleDaysCount - 1 && selectedIndex < dailyMetrics.length - 1) {
+    if (selectedIndex < visibleDaysCount - 1 && selectedIndex < displayMetrics.length - 1) {
       setSelectedIndex(prev => prev + 1);
     } else {
       setIsLoadingOlderDays(true);
       try {
         await new Promise(res => setTimeout(res, 400));
-        const nextCount = Math.min(dailyMetrics.length, visibleDaysCount + 7);
+        const nextCount = Math.min(displayMetrics.length, visibleDaysCount + 7);
         if (nextCount > visibleDaysCount) {
           setVisibleDaysCount(nextCount);
           setSelectedIndex(prev => prev + 1);
-        } else if (onSyncGarmin && dailyMetrics.length > 0) {
-          const oldestDate = new Date(dailyMetrics[dailyMetrics.length - 1].date);
+        } else if (onSyncGarmin && displayMetrics.length > 0) {
+          const oldestDate = new Date(displayMetrics[displayMetrics.length - 1].date);
           oldestDate.setDate(oldestDate.getDate() - 1);
           const targetStr = oldestDate.toISOString().split('T')[0];
           await onSyncGarmin(targetStr);
@@ -325,12 +350,12 @@ export default function Health({ dailyMetrics = [], activities = [], hevySession
   const currentWorkout = currentMetrics ? getWorkoutForDate(currentMetrics.date) : null;
 
   const lastWeight = useMemo(() => {
-    if (!dailyMetrics || dailyMetrics.length === 0) return null;
-    for (let i = selectedIndex; i < dailyMetrics.length; i++) {
-      if (dailyMetrics[i].weight_kg != null && dailyMetrics[i].weight_kg > 0) return dailyMetrics[i].weight_kg;
+    if (!displayMetrics || displayMetrics.length === 0) return null;
+    for (let i = selectedIndex; i < displayMetrics.length; i++) {
+      if (displayMetrics[i].weight_kg != null && displayMetrics[i].weight_kg > 0) return displayMetrics[i].weight_kg;
     }
     return null;
-  }, [dailyMetrics, selectedIndex]);
+  }, [displayMetrics, selectedIndex]);
 
   const sleepScoreData = useMemo(() => {
     if (currentMetrics) return calculateSleepScore(currentMetrics, hevySessions);
@@ -338,15 +363,15 @@ export default function Health({ dailyMetrics = [], activities = [], hevySession
   }, [currentMetrics, hevySessions]);
 
   const weightHistoryData = useMemo(() => {
-    if (!dailyMetrics || dailyMetrics.length === 0) return [];
-    return [...dailyMetrics]
+    if (!displayMetrics || displayMetrics.length === 0) return [];
+    return [...displayMetrics]
       .filter(d => d.weight_kg != null && d.weight_kg > 0)
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
       .map(d => ({
         date: new Date(d.date).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' }),
         peso: d.weight_kg
       }));
-  }, [dailyMetrics]);
+  }, [displayMetrics]);
 
   const intradayStepsData = useMemo(() => {
     if (!currentMetrics?.steps_timeline || !Array.isArray(currentMetrics.steps_timeline)) return [];
@@ -360,9 +385,9 @@ export default function Health({ dailyMetrics = [], activities = [], hevySession
   }, [currentMetrics]);
 
   const fitnessFatigueData = useMemo(() => {
-    if (!dailyMetrics || dailyMetrics.length === 0) return [];
+    if (!displayMetrics || displayMetrics.length === 0) return [];
     
-    const data = [...dailyMetrics].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const data = [...displayMetrics].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     
     let ctl = 0;
     let atl = 0;
@@ -395,13 +420,13 @@ export default function Health({ dailyMetrics = [], activities = [], hevySession
     }
     
     return results.slice(-90); // Last 90 days
-  }, [dailyMetrics]);
+  }, [displayMetrics]);
 
   const sleepHeatmapData = useMemo(() => {
-    if (!dailyMetrics || dailyMetrics.length === 0) return [];
+    if (!displayMetrics || displayMetrics.length === 0) return [];
     
     // The real end date based on latest data
-    const realEndDate = new Date(dailyMetrics[0].date);
+    const realEndDate = new Date(displayMetrics[0].date);
     
     // Add 28 days (4 columns) to the right to visually center the existing data
     const endDate = new Date(realEndDate);
@@ -411,7 +436,7 @@ export default function Health({ dailyMetrics = [], activities = [], hevySession
     startDate.setDate(startDate.getDate() - 363); 
     
     const daysMap = new Map();
-    for (const m of dailyMetrics) {
+    for (const m of displayMetrics) {
       daysMap.set(m.date.split('T')[0], m.sleep_score || 0);
     }
     
@@ -427,7 +452,7 @@ export default function Health({ dailyMetrics = [], activities = [], hevySession
     }
     
     return results;
-  }, [dailyMetrics]);
+  }, [displayMetrics]);
 
   const sleepHeatmapStats = useMemo(() => {
     if (!sleepHeatmapData || sleepHeatmapData.length === 0) return null;
@@ -455,9 +480,9 @@ export default function Health({ dailyMetrics = [], activities = [], hevySession
   }, [sleepHeatmapData]);
 
   const rhrHistoryData = useMemo(() => {
-    if (!dailyMetrics || dailyMetrics.length === 0) return [];
+    if (!displayMetrics || displayMetrics.length === 0) return [];
     
-    const data = [...dailyMetrics].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const data = [...displayMetrics].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     const validData = data.filter(d => d.resting_hr != null && d.resting_hr > 0);
     
     return validData.map((d, i, arr) => {
@@ -473,12 +498,12 @@ export default function Health({ dailyMetrics = [], activities = [], hevySession
         trend: Math.round((sum / count) * 10) / 10
       };
     });
-  }, [dailyMetrics]);
+  }, [displayMetrics]);
 
   const stressHistoryData = useMemo(() => {
-    if (!dailyMetrics || dailyMetrics.length === 0) return [];
+    if (!displayMetrics || displayMetrics.length === 0) return [];
     
-    const data = [...dailyMetrics].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const data = [...displayMetrics].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     const validData = data.filter(d => (d.stress_level != null && d.stress_level > 0) || (d.resting_hr != null && d.resting_hr > 0));
     
     return validData.map((d, i, arr) => {
@@ -496,7 +521,7 @@ export default function Health({ dailyMetrics = [], activities = [], hevySession
         trend: Math.round((sum / count) * 10) / 10
       };
     });
-  }, [dailyMetrics]);
+  }, [displayMetrics]);
 
   const handleSaveCustomLocation = () => {
     if (!currentMetrics?.date || !inputCity.trim()) return;
@@ -541,7 +566,7 @@ export default function Health({ dailyMetrics = [], activities = [], hevySession
           };
           setDbCachedAnalyses(prev => ({ ...prev, [targetDate]: hydrated }));
         } else {
-          const generated = generateHealthSectionAnalysis(currentMetrics, dailyMetrics);
+          const generated = generateHealthSectionAnalysis(currentMetrics, displayMetrics);
           setDbCachedAnalyses(prev => ({ ...prev, [targetDate]: generated }));
 
           const dbRecord = {
@@ -568,18 +593,18 @@ export default function Health({ dailyMetrics = [], activities = [], hevySession
       .catch(err => console.error('Error querying Supabase health analysis:', err));
 
     return () => { isMounted = false; };
-  }, [currentMetrics?.date, dailyMetrics]);
+  }, [currentMetrics?.date, displayMetrics]);
 
   const sectionAnalyses = useMemo(() => {
     if (!currentMetrics) return null;
     if (dbCachedAnalyses[currentMetrics.date]) {
       return dbCachedAnalyses[currentMetrics.date];
     }
-    return generateHealthSectionAnalysis(currentMetrics, dailyMetrics);
-  }, [currentMetrics, dailyMetrics, dbCachedAnalyses]);
+    return generateHealthSectionAnalysis(currentMetrics, displayMetrics);
+  }, [currentMetrics, displayMetrics, dbCachedAnalyses]);
 
   const sleepVsTargetData = useMemo(() => {
-    if (!dailyMetrics || dailyMetrics.length === 0 || !currentMetrics?.date) return [];
+    if (!displayMetrics || displayMetrics.length === 0 || !currentMetrics?.date) return [];
 
     const selectedDateStr = currentMetrics.date.split('T')[0];
     const [year, month, day] = selectedDateStr.split('-').map(Number);
@@ -605,7 +630,7 @@ export default function Health({ dailyMetrics = [], activities = [], hevySession
       const dayName = currentDay.toLocaleDateString('en-US', { weekday: 'short' });
       const dateNum = currentDay.getDate();
       
-      const m = dailyMetrics.find(metric => metric.date === dateStr || metric.date?.startsWith(dateStr));
+      const m = displayMetrics.find(metric => metric.date === dateStr || metric.date?.startsWith(dateStr));
       
       if (m) {
         const actualHours = m.sleep_duration ? m.sleep_duration / 60 : null;
@@ -641,7 +666,7 @@ export default function Health({ dailyMetrics = [], activities = [], hevySession
     }
 
     return result;
-  }, [dailyMetrics, currentMetrics?.date]);
+  }, [displayMetrics, currentMetrics?.date]);
 
   // NEW ULTRA MINIMAL CAPSULE (No borders, pure typography)
   const getReadinessColor = (val?: number) => {
@@ -844,7 +869,7 @@ export default function Health({ dailyMetrics = [], activities = [], hevySession
         )}
       </div>
 
-      {dailyMetrics.length > 0 && currentMetrics && (
+      {displayMetrics.length > 0 && currentMetrics && (
         <div className="flex items-center justify-between w-full clean-panel px-4 py-3 mb-8">
           <button 
             onClick={() => handleLoadOlderDays('older')}
@@ -1439,7 +1464,7 @@ export default function Health({ dailyMetrics = [], activities = [], hevySession
                 className="w-full bg-primary text-[var(--surface-base)] font-bold rounded-full py-3 hover:opacity-90 transition-opacity cursor-pointer flex justify-center items-center"
                 disabled={isSyncing}
                 onClick={async () => {
-                  const idx = dailyMetrics.findIndex(m => m.date.startsWith(selectedPickerDate));
+                  const idx = displayMetrics.findIndex(m => m.date.startsWith(selectedPickerDate));
                   if (idx !== -1) {
                     if (idx >= visibleDaysCount) {
                        setVisibleDaysCount(idx + 1);
