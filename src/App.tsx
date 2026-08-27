@@ -208,10 +208,13 @@ export default function App() {
             transition={{ duration: 0.15 }}
           >
             {isAdminOpen ? (
-              <Admin onClose={() => {
-                setIsAdminOpen(false);
-                fetchData();
-              }} />
+              <Admin 
+                onClose={() => {
+                  setIsAdminOpen(false);
+                  fetchData();
+                }} 
+                onRefreshData={fetchData}
+              />
             ) : activeTab === 'dashboard' ? (
               <Dashboard
                 stats={stats}

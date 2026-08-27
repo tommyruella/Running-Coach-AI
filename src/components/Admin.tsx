@@ -5,9 +5,10 @@ import HevyImportPanel from './HevyImportPanel.tsx';
 
 interface AdminProps {
   onClose: () => void;
+  onRefreshData?: () => void;
 }
 
-export default function Admin({ onClose }: AdminProps) {
+export default function Admin({ onClose, onRefreshData }: AdminProps) {
   const [activeTab, setActiveTab] = useState<'runs' | 'hevy'>('runs');
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
@@ -158,7 +159,11 @@ export default function Admin({ onClose }: AdminProps) {
         )}
 
         <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
-          {activeTab === 'hevy' && <HevyImportPanel />}
+          {activeTab === 'hevy' && (
+            <HevyImportPanel onSuccess={() => {
+              if (onRefreshData) onRefreshData();
+            }} />
+          )}
           
           {activeTab === 'runs' && (
             loading ? (
