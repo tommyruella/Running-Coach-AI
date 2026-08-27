@@ -849,19 +849,28 @@ app.get('/api/hevy/sessions', async (req, res) => {
 app.post('/api/hevy/sessions', express.json(), async (req, res) => {
   try {
     const { session } = req.body;
-    if (!session || !session.id) {
-      return res.status(400).json({ error: 'Invalid session data' });
+    if (!session || !session.start_time) {
+      return res.status(400).json({ error: 'Invalid session data: missing start_time' });
     }
+
+    // Always generate a safe, collision-free ID server-side.
+    // This protects against any old client code that might still be cached.
+    const startMs = new Date(session.start_time).getTime();
+    const rand = Math.random().toString(36).substring(2, 9);
+    const safeId = `hevy_srv_${startMs}_${rand}`;
+
+    const safeSession = { ...session, id: safeId };
+
+    // INSERT (not upsert) – every import creates a new permanent record
+    await saveHevySessions([safeSession]);
     
-    // Upsert the session to the DB
-    await saveHevySessions([session]);
-    
-    res.json({ success: true });
+    res.json({ success: true, id: safeId });
   } catch (error) {
     console.error('Error saving hevy session:', error);
     res.status(500).json({ error: 'Failed to save hevy session' });
   }
 });
+
 
 app.get('/api/metrics/daily', async (req, res) => {
   try {
