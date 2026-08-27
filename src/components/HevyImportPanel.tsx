@@ -2,11 +2,82 @@ import React, { useState } from 'react';
 import { Dumbbell, Save, CheckCircle } from 'lucide-react';
 
 const itMonths: Record<string, string> = {
-  'gen': '01', 'feb': '02', 'mar': '03', 'apr': '04', 'mag': '05', 'giu': '06',
-  'lug': '07', 'ago': '08', 'set': '09', 'ott': '10', 'nov': '11', 'dic': '12'
+  'gennaio': '01', 'gen': '01',
+  'febbraio': '02', 'feb': '02',
+  'marzo': '03', 'mar': '03',
+  'aprile': '04', 'apr': '04',
+  'maggio': '05', 'mag': '05',
+  'giugno': '06', 'giu': '06',
+  'luglio': '07', 'lug': '07',
+  'agosto': '08', 'ago': '08',
+  'settembre': '09', 'set': '09',
+  'ottobre': '10', 'ott': '10',
+  'novembre': '11', 'nov': '11',
+  'dicembre': '12', 'dic': '12'
 };
 
-export default function HevyImportPanel() {
+export function parseHevyDate(dateLine: string): string {
+  const clean = dateLine.toLowerCase();
+  
+  let hour = 18;
+  let minute = 0;
+  
+  // 1. Extract Time (e.g. 6:37pm, 18:30, 7:00 am, 19:15)
+  const timeMatch = clean.match(/(?:alle ore\s+|ore\s+|,\s*|\bat\s+)(\d{1,2}):(\d{2})\s*(am|pm)?/i);
+  if (timeMatch) {
+    hour = parseInt(timeMatch[1], 10);
+    minute = parseInt(timeMatch[2], 10);
+    const ampm = timeMatch[3]?.toLowerCase();
+    if (ampm === 'pm' && hour < 12) hour += 12;
+    if (ampm === 'am' && hour === 12) hour = 0;
+  }
+  
+  let year = new Date().getFullYear();
+  let month = (new Date().getMonth() + 1).toString().padStart(2, '0');
+  let day = new Date().getDate().toString().padStart(2, '0');
+
+  // Extract 4-digit year if present
+  const yearMatch = clean.match(/\b(20\d\d)\b/);
+  if (yearMatch) {
+    year = parseInt(yearMatch[1], 10);
+  }
+
+  // Remove year from string so digits in 2026 don't get mistaken for day
+  const withoutYear = yearMatch ? clean.replace(yearMatch[0], ' ') : clean;
+
+  const monthKeys = Object.keys(itMonths).sort((a, b) => b.length - a.length);
+  const foundMonthKey = monthKeys.find(m => new RegExp('(^|[^a-z])' + m + '([^a-z]|$)', 'i').test(withoutYear));
+  
+  if (foundMonthKey) {
+    month = itMonths[foundMonthKey];
+    
+    // Look for day in the rest of the text (either before or after month)
+    const dayAfter = withoutYear.match(new RegExp(foundMonthKey + '[\\s,]+(\\d{1,2})\\b', 'i'));
+    const dayBefore = withoutYear.match(new RegExp('\\b(\\d{1,2})[\\s,]+' + foundMonthKey, 'i'));
+    
+    if (dayAfter && parseInt(dayAfter[1], 10) >= 1 && parseInt(dayAfter[1], 10) <= 31) {
+      day = dayAfter[1].padStart(2, '0');
+    } else if (dayBefore && parseInt(dayBefore[1], 10) >= 1 && parseInt(dayBefore[1], 10) <= 31) {
+      day = dayBefore[1].padStart(2, '0');
+    }
+  } else {
+    const numDateMatch = clean.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+    if (numDateMatch) {
+      day = numDateMatch[1].padStart(2, '0');
+      month = numDateMatch[2].padStart(2, '0');
+      year = parseInt(numDateMatch[3], 10);
+    }
+  }
+  
+  const d = new Date(year, parseInt(month, 10) - 1, parseInt(day, 10), hour, minute, 0);
+  return d.toISOString();
+}
+
+interface HevyImportPanelProps {
+  onSuccess?: () => void;
+}
+
+export default function HevyImportPanel({ onSuccess }: HevyImportPanelProps = {}) {
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
@@ -17,61 +88,42 @@ export default function HevyImportPanel() {
     setMessage('');
     
     try {
-      const lines = text.split('\n').map(l => l.trim());
+      const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+      if (lines.length < 2) {
+        throw new Error('Testo troppo breve o formato non valido.');
+      }
       
       const title = lines[0];
-      const dateLine = lines[1];
+      const dateLine = lines[1] || '';
       
-      // Parse date: "Il giorno martedì, lug 14, 2026 alle ore 6:37pm"
-      // or similar formats. Let's try to extract month, day, year, time.
-      let startTime = new Date().toISOString();
-      const dateMatch = dateLine.match(/([a-z]{3})\s+(\d+),\s+(\d+)\s+alle ore\s+(\d+):(\d+)(am|pm)/i);
-      
-      if (dateMatch) {
-        const month = itMonths[dateMatch[1].toLowerCase()] || '01';
-        const day = dateMatch[2].padStart(2, '0');
-        const year = dateMatch[3];
-        let h = parseInt(dateMatch[4], 10);
-        const m = dateMatch[5].padStart(2, '0');
-        const ampm = dateMatch[6].toLowerCase();
-        
-        if (ampm === 'pm' && h < 12) h += 12;
-        if (ampm === 'am' && h === 12) h = 0;
-        
-        const hour = h.toString().padStart(2, '0');
-        startTime = new Date(`${year}-${month}-${day}T${hour}:${m}:00`).toISOString();
-      }
-
-      // We don't have exact duration from text, so we assume 1h end time for now
+      const startTime = parseHevyDate(dateLine);
       const endTime = new Date(new Date(startTime).getTime() + 3600000).toISOString();
       
-      const exercises = [];
-      let currentExercise = null;
+      const exercises: any[] = [];
+      let currentExercise: any = null;
       let totalVolume = 0;
       
       for(let i = 2; i < lines.length; i++) {
         const line = lines[i];
-        if (!line) continue;
-        
         if (line.startsWith('Serie ')) {
-          if (!currentExercise) continue; // safety
-          // "Serie 1: 13.6 kg x 10 [Riscaldamento]"
-          const setMatch = line.match(/Serie (\d+):\s+([\d.]+)\s+(kg|lbs)\s+x\s+(\d+)(.*)/i);
+          if (!currentExercise) continue;
+          
+          let setMatch = line.match(/Serie\s+(\d+)[:\s]+([\d.,]+)\s*(kg|lbs)?\s*[xX]\s*(\d+)(.*)/i);
           if (setMatch) {
             const index = parseInt(setMatch[1], 10) - 1;
-            let weight = parseFloat(setMatch[2]);
-            const unit = setMatch[3].toLowerCase();
+            let weight = parseFloat(setMatch[2].replace(',', '.'));
+            const unit = (setMatch[3] || 'kg').toLowerCase();
             const reps = parseInt(setMatch[4], 10);
-            const extra = setMatch[5].toLowerCase();
+            const extra = (setMatch[5] || '').toLowerCase();
             
             if (unit === 'lbs') {
-              weight = weight * 0.453592; // to kg
+              weight = weight * 0.453592;
             }
             
             let type = 'normal';
-            if (extra.includes('riscaldamento')) type = 'warmup';
+            if (extra.includes('riscaldamento') || extra.includes('warmup')) type = 'warmup';
             if (extra.includes('drop')) type = 'drop';
-            if (extra.includes('fallimento')) type = 'failure';
+            if (extra.includes('fallimento') || extra.includes('failure')) type = 'failure';
             
             currentExercise.sets.push({
               index,
@@ -81,6 +133,24 @@ export default function HevyImportPanel() {
             });
             
             totalVolume += (weight * reps);
+          } else {
+            const bwMatch = line.match(/Serie\s+(\d+)[:\s]+(\d+)\s*(?:reps?)?(.*)/i);
+            if (bwMatch) {
+              const index = parseInt(bwMatch[1], 10) - 1;
+              const reps = parseInt(bwMatch[2], 10);
+              const extra = (bwMatch[3] || '').toLowerCase();
+              let type = 'normal';
+              if (extra.includes('riscaldamento') || extra.includes('warmup')) type = 'warmup';
+              if (extra.includes('drop')) type = 'drop';
+              if (extra.includes('fallimento') || extra.includes('failure')) type = 'failure';
+              
+              currentExercise.sets.push({
+                index,
+                type,
+                weight_kg: 0,
+                reps
+              });
+            }
           }
         } else if (!line.startsWith('@') && !line.startsWith('http')) {
           // This is an exercise title
@@ -92,8 +162,11 @@ export default function HevyImportPanel() {
         }
       }
       
+      // Collision-free unique ID based on timestamp and randomness
+      const uniqueId = `hevy_txt_${new Date(startTime).getTime()}_${Math.random().toString(36).substring(2, 7)}`;
+      
       const session = {
-        id: "hevy_txt_" + btoa(startTime).replace(/[^a-zA-Z0-9]/g, '').substring(0, 8),
+        id: uniqueId,
         title,
         start_time: startTime,
         end_time: endTime,
@@ -111,12 +184,16 @@ export default function HevyImportPanel() {
       if (res.ok) {
         setMessage('Allenamento importato con successo!');
         setText('');
+        if (onSuccess) {
+          onSuccess();
+        }
       } else {
-        setMessage('Errore durante il salvataggio.');
+        const data = await res.json().catch(() => ({}));
+        setMessage(`Errore durante il salvataggio: ${data.error || 'Server error'}`);
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      setMessage('Errore nel formato del testo.');
+      setMessage(`Errore nel formato del testo: ${e?.message || e}`);
     } finally {
       setLoading(false);
     }
@@ -125,7 +202,7 @@ export default function HevyImportPanel() {
   return (
     <div className="space-y-4">
       <p className="text-sm text-secondary mb-4">
-        Incolla qui il testo condiviso dall'app Hevy. L'allenamento verrà analizzato, calcoleremo il volume totale e i dettagli per ogni serie e lo aggiungeremo al tuo storico.
+        Incolla qui il testo condiviso dall'app Hevy. L'allenamento verrà analizzato, calcoleremo il volume totale e i dettagli per ogni serie e lo aggiungeremo permanentemente al tuo storico.
       </p>
       
       <textarea
@@ -146,7 +223,7 @@ export default function HevyImportPanel() {
         <button
           onClick={handleImport}
           disabled={loading || !text.trim()}
-          className="flex items-center gap-2 bg-accent-cyan text-[var(--window-bg)] px-6 py-2.5 rounded-full font-bold uppercase tracking-widest text-xs hover:bg-accent-cyan/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+          className="flex items-center gap-2 bg-accent-cyan text-[var(--window-bg)] px-6 py-2.5 rounded-full font-bold uppercase tracking-widest text-xs hover:bg-accent-cyan/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm cursor-pointer"
         >
           {loading ? (
             <div className="w-4 h-4 border-2 border-[var(--window-bg)] border-t-transparent rounded-full animate-spin"></div>
