@@ -8,6 +8,7 @@ import path from 'path';
 import multer from 'multer';
 import dotenv from 'dotenv';
 import fs from 'fs';
+import crypto from 'crypto';
 import { GoogleGenAI } from '@google/genai';
 import { parseTcx } from './server/tcxParser.js';
 import {
@@ -853,24 +854,21 @@ app.post('/api/hevy/sessions', express.json(), async (req, res) => {
       return res.status(400).json({ error: 'Invalid session data: missing start_time' });
     }
 
-    // Always generate a safe, collision-free ID server-side.
-    // This protects against any old client code that might still be cached.
-    const startMs = new Date(session.start_time).getTime();
-    const rand = Math.random().toString(36).substring(2, 9);
-    const safeId = `hevy_srv_${startMs}_${rand}`;
-
+    // Generate a guaranteed-unique ID server-side using Node crypto.
+    // We NEVER trust the client-side ID — old cached frontend code
+    // generates colliding IDs (btoa bug). This is the single source of truth.
+    const safeId = `hevy_${crypto.randomUUID()}`;
     const safeSession = { ...session, id: safeId };
 
     // INSERT (not upsert) – every import creates a new permanent record
     await saveHevySessions([safeSession]);
-    
+
     res.json({ success: true, id: safeId });
   } catch (error) {
     console.error('Error saving hevy session:', error);
     res.status(500).json({ error: 'Failed to save hevy session' });
   }
 });
-
 
 app.get('/api/metrics/daily', async (req, res) => {
   try {
