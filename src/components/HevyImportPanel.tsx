@@ -16,49 +16,59 @@ const itMonths: Record<string, string> = {
   'dicembre': '12', 'dic': '12'
 };
 
+export function isDateLine(line: string): boolean {
+  const clean = line.toLowerCase();
+  if (clean.includes('giorno') || clean.includes('alle ore') || clean.includes('ore ')) return true;
+  if (/\b\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}\b/.test(clean)) return true;
+  
+  const monthKeys = Object.keys(itMonths);
+  const hasMonth = monthKeys.some(m => new RegExp('(^|[^a-z])' + m + '([^a-z]|$)', 'i').test(clean));
+  const hasYear = /\b(20\d\d)\b/.test(clean);
+  const hasDay = /\b(\d{1,2})\b/.test(clean);
+  
+  return hasMonth && (hasYear || hasDay);
+}
+
 export function parseHevyDate(dateLine: string): string {
-  const clean = dateLine.toLowerCase();
+  let clean = dateLine.toLowerCase();
   
   let hour = 18;
   let minute = 0;
   
-  // 1. Extract Time (e.g. 6:37pm, 18:30, 7:00 am, 19:15)
-  const timeMatch = clean.match(/(?:alle ore\s+|ore\s+|,\s*|\bat\s+)(\d{1,2}):(\d{2})\s*(am|pm)?/i);
+  // 1. Extract and remove Time (e.g. 6:37pm, 18:30, 7:00 am, 19:15)
+  const timeMatch = clean.match(/(?:alle ore\s+|ore\s+|,\s*|\bat\s+)?(\d{1,2}):(\d{2})\s*(am|pm)?/i);
   if (timeMatch) {
     hour = parseInt(timeMatch[1], 10);
     minute = parseInt(timeMatch[2], 10);
     const ampm = timeMatch[3]?.toLowerCase();
     if (ampm === 'pm' && hour < 12) hour += 12;
     if (ampm === 'am' && hour === 12) hour = 0;
+    
+    clean = clean.replace(timeMatch[0], ' ');
   }
   
   let year = new Date().getFullYear();
   let month = (new Date().getMonth() + 1).toString().padStart(2, '0');
   let day = new Date().getDate().toString().padStart(2, '0');
 
-  // Extract 4-digit year if present
+  // 2. Extract and remove 4-digit year
   const yearMatch = clean.match(/\b(20\d\d)\b/);
   if (yearMatch) {
     year = parseInt(yearMatch[1], 10);
+    clean = clean.replace(yearMatch[0], ' ');
   }
 
-  // Remove year from string so digits in 2026 don't get mistaken for day
-  const withoutYear = yearMatch ? clean.replace(yearMatch[0], ' ') : clean;
-
+  // 3. Find Month
   const monthKeys = Object.keys(itMonths).sort((a, b) => b.length - a.length);
-  const foundMonthKey = monthKeys.find(m => new RegExp('(^|[^a-z])' + m + '([^a-z]|$)', 'i').test(withoutYear));
+  const foundMonthKey = monthKeys.find(m => new RegExp('(^|[^a-z])' + m + '([^a-z]|$)', 'i').test(clean));
   
   if (foundMonthKey) {
     month = itMonths[foundMonthKey];
     
-    // Look for day in the rest of the text (either before or after month)
-    const dayAfter = withoutYear.match(new RegExp(foundMonthKey + '[\\s,]+(\\d{1,2})\\b', 'i'));
-    const dayBefore = withoutYear.match(new RegExp('\\b(\\d{1,2})[\\s,]+' + foundMonthKey, 'i'));
-    
-    if (dayAfter && parseInt(dayAfter[1], 10) >= 1 && parseInt(dayAfter[1], 10) <= 31) {
-      day = dayAfter[1].padStart(2, '0');
-    } else if (dayBefore && parseInt(dayBefore[1], 10) >= 1 && parseInt(dayBefore[1], 10) <= 31) {
-      day = dayBefore[1].padStart(2, '0');
+    // Any remaining 1-2 digit number in the string is the day
+    const dayMatch = clean.match(/\b(\d{1,2})\b/);
+    if (dayMatch && parseInt(dayMatch[1], 10) >= 1 && parseInt(dayMatch[1], 10) <= 31) {
+      day = dayMatch[1].padStart(2, '0');
     }
   } else {
     const numDateMatch = clean.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
@@ -88,27 +98,53 @@ export default function HevyImportPanel({ onSuccess }: HevyImportPanelProps = {}
     setMessage('');
     
     try {
-      const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-      if (lines.length < 2) {
+      const rawLines = text.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('http') && !l.startsWith('@'));
+      if (rawLines.length < 2) {
         throw new Error('Testo troppo breve o formato non valido.');
       }
       
-      const title = lines[0];
-      const dateLine = lines[1] || '';
+      let title = 'Allenamento Hevy';
+      let dateLine = '';
+      let dateLineIndex = -1;
       
-      const startTime = parseHevyDate(dateLine);
+      // Find date line
+      for (let i = 0; i < rawLines.length; i++) {
+        if (isDateLine(rawLines[i])) {
+          dateLine = rawLines[i];
+          dateLineIndex = i;
+          break;
+        }
+      }
+      
+      // Find title line
+      if (dateLineIndex > 0) {
+        title = rawLines[0];
+      } else if (dateLineIndex === 0 && rawLines.length > 1) {
+        if (!rawLines[1].toLowerCase().startsWith('serie') && !rawLines[1].toLowerCase().startsWith('set')) {
+          title = rawLines[1];
+        }
+      } else if (rawLines.length > 0) {
+        title = rawLines[0];
+      }
+      
+      const startTime = dateLine ? parseHevyDate(dateLine) : new Date().toISOString();
       const endTime = new Date(new Date(startTime).getTime() + 3600000).toISOString();
       
       const exercises: any[] = [];
       let currentExercise: any = null;
       let totalVolume = 0;
       
-      for(let i = 2; i < lines.length; i++) {
-        const line = lines[i];
-        if (line.startsWith('Serie ')) {
+      // Start parsing exercises after header / date
+      const startIndex = Math.max(0, dateLineIndex >= 0 ? dateLineIndex + 1 : 1);
+      
+      for(let i = 0; i < rawLines.length; i++) {
+        if (i === dateLineIndex || (i === 0 && rawLines[i] === title)) continue;
+        const line = rawLines[i];
+        
+        if (line.toLowerCase().startsWith('serie') || line.toLowerCase().startsWith('set')) {
           if (!currentExercise) continue;
           
-          let setMatch = line.match(/Serie\s+(\d+)[:\s]+([\d.,]+)\s*(kg|lbs)?\s*[xX]\s*(\d+)(.*)/i);
+          let setMatch = line.match(/(?:Serie|Set)\s+(\d+)[:\s]+([\d.,]+)\s*(kg|lbs)?\s*[xX]\s*(\d+)(.*)/i);
           if (setMatch) {
             const index = parseInt(setMatch[1], 10) - 1;
             let weight = parseFloat(setMatch[2].replace(',', '.'));
@@ -134,7 +170,7 @@ export default function HevyImportPanel({ onSuccess }: HevyImportPanelProps = {}
             
             totalVolume += (weight * reps);
           } else {
-            const bwMatch = line.match(/Serie\s+(\d+)[:\s]+(\d+)\s*(?:reps?)?(.*)/i);
+            const bwMatch = line.match(/(?:Serie|Set)\s+(\d+)[:\s]+(\d+)\s*(?:reps?)?(.*)/i);
             if (bwMatch) {
               const index = parseInt(bwMatch[1], 10) - 1;
               const reps = parseInt(bwMatch[2], 10);
@@ -152,7 +188,7 @@ export default function HevyImportPanel({ onSuccess }: HevyImportPanelProps = {}
               });
             }
           }
-        } else if (!line.startsWith('@') && !line.startsWith('http')) {
+        } else {
           // This is an exercise title
           currentExercise = {
             title: line,
