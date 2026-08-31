@@ -850,20 +850,16 @@ app.get('/api/hevy/sessions', async (req, res) => {
 app.post('/api/hevy/sessions', express.json(), async (req, res) => {
   try {
     const { session } = req.body;
-    if (!session || !session.start_time) {
-      return res.status(400).json({ error: 'Invalid session data: missing start_time' });
+    if (!session || !session.id || !session.start_time) {
+      return res.status(400).json({ error: 'Invalid session data' });
     }
 
-    // Generate a guaranteed-unique ID server-side using Node crypto.
-    // We NEVER trust the client-side ID — old cached frontend code
-    // generates colliding IDs (btoa bug). This is the single source of truth.
-    const safeId = `hevy_${crypto.randomUUID()}`;
-    const safeSession = { ...session, id: safeId };
+    // The ID is hevy_<slug> where slug comes from the Hevy URL.
+    // Hevy slugs are globally unique per workout — no collision possible.
+    // We upsert so re-importing the same workout updates it instead of erroring.
+    await saveHevySessions([session]);
 
-    // INSERT (not upsert) – every import creates a new permanent record
-    await saveHevySessions([safeSession]);
-
-    res.json({ success: true, id: safeId });
+    res.json({ success: true, id: session.id });
   } catch (error) {
     console.error('Error saving hevy session:', error);
     res.status(500).json({ error: 'Failed to save hevy session' });

@@ -480,7 +480,7 @@ export async function saveHevySessions(sessions: any[]): Promise<void> {
   try {
     const { error } = await supabaseAdmin
       .from('hevy_sessions')
-      .insert(sessions);
+      .upsert(sessions, { onConflict: 'id' });
 
     if (error) throw error;
   } catch (error) {
