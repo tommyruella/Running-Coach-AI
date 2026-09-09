@@ -1,7 +1,6 @@
-import { generateHealthSectionAnalysis } from '../utils/healthAiEngine';
-import React, { useMemo, useState, useEffect, useCallback } from 'react';
+import React, { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import { motion } from 'motion/react';
-import { ChevronLeft, ChevronRight, MapPin, X, Loader2, ChevronDown, ChevronUp, Sparkles, Cloud, Sun, CloudRain } from 'lucide-react';
+import { ChevronLeft, ChevronRight, MapPin, X, Loader2, Cloud, Sun, CloudRain } from 'lucide-react';
 import {
   ResponsiveContainer,
   BarChart, Bar, Cell, LabelList,
@@ -177,15 +176,6 @@ const getReadinessColor = (val?: number) => {
   return '#ef4444'; // Premium Coral Red
 };
 
-const getReadinessComment = (val?: number) => {
-  if (!val) return "Dati insufficienti per valutare la readiness odierna.";
-  if (val >= 90) return "La tua readiness è ai massimi livelli. Sei perfettamente recuperato e pronto per affrontare sforzi intensi o superare i tuoi record.";
-  if (val >= 75) return "Ottima readiness. Il corpo ha recuperato bene ed è preparato per un allenamento produttivo e di qualità.";
-  if (val >= 50) return "Readiness moderata. Puoi allenarti, ma ascolta il tuo corpo e considera di ridurre l'intensità se avverti affaticamento.";
-  if (val >= 25) return "La tua readiness è bassa. Il recupero non è ottimale; valuta un allenamento leggero o una giornata di riposo attivo.";
-  return "Readiness molto bassa. Il tuo corpo ha un forte bisogno di recupero. È fortemente consigliato riposo o attività di scarico.";
-};
-
 const ReadinessRing = ({ score }: { score: number }) => {
   const radius = 80;
   const stroke = 12;
@@ -233,39 +223,6 @@ const ReadinessRing = ({ score }: { score: number }) => {
         <span className="text-5xl font-black font-mono leading-none" style={{ color }}>{score || '--'}</span>
         <span className="text-[10px] font-bold uppercase tracking-widest mt-1" style={{ color }}>{getLabel(score)}</span>
       </div>
-    </div>
-  );
-};
-
-const AiInsightAccordion = ({ analysis, title = "Analisi AI" }: any) => {
-  const [isExpanded, setIsExpanded] = useState(false);
-  if (!analysis) return null;
-  return (
-    <div className="mt-4 -mx-6 sm:-mx-8 -mb-6 sm:-mb-8 bg-[var(--surface-inset)] border-t border-[var(--border-subtle)] overflow-hidden transition-all duration-300 rounded-b-[11px]">
-      <button 
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full flex items-center justify-between px-6 sm:px-8 py-4 cursor-pointer hover:bg-[var(--surface-card-alt)] transition-colors group"
-      >
-        <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-full bg-[var(--surface-card)] shadow-sm flex items-center justify-center border border-[var(--border-subtle)]">
-            <Sparkles className="w-3.5 h-3.5 text-[var(--accent-lime)]" />
-          </div>
-          <span className="text-sm font-semibold text-primary tracking-tight">{title}</span>
-        </div>
-        <div className="w-7 h-7 flex items-center justify-center bg-[var(--surface-card)] rounded-full border border-[var(--border-subtle)] shadow-sm">
-          <ChevronDown className={`w-4 h-4 text-secondary transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`} />
-        </div>
-      </button>
-      {isExpanded && (
-        <div className="px-6 sm:px-8 pb-6 pt-2 space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
-          <div className="space-y-1.5">
-            <h4 className="text-xs font-bold text-primary uppercase tracking-widest">{analysis.trendStatus}</h4>
-            <p className="text-sm text-secondary leading-relaxed font-sans">
-              {analysis.insightText}
-            </p>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
@@ -583,6 +540,55 @@ export default function Health({ dailyMetrics = [], activities = [], hevySession
     return { avgScore, daysWithScore, daysOver90, daysOver80, daysOver60, daysUnder60 };
   }, [sleepHeatmapData]);
 
+  const heatmapContainerRef = useRef<HTMLDivElement>(null);
+  const currentWeekRef = useRef<HTMLDivElement>(null);
+
+  const currentWeekCol = useMemo(() => {
+    if (!sleepHeatmapData || sleepHeatmapData.length === 0) return -1;
+    const todayDateStr = (displayMetrics[0]?.date || new Date().toISOString()).split('T')[0];
+    const todayIdx = sleepHeatmapData.findIndex(d => d.date === todayDateStr);
+    if (todayIdx !== -1) {
+      return Math.floor(todayIdx / 7);
+    }
+    return Math.floor((sleepHeatmapData.length - 1) / 7);
+  }, [sleepHeatmapData, displayMetrics]);
+
+  const scrollToCurrentWeek = useCallback((behavior: ScrollBehavior = 'auto') => {
+    const container = heatmapContainerRef.current;
+    const target = currentWeekRef.current;
+    if (!container || !target) return;
+
+    const containerRect = container.getBoundingClientRect();
+    const targetRect = target.getBoundingClientRect();
+
+    const targetCenter = targetRect.left + targetRect.width / 2;
+    const containerCenter = containerRect.left + containerRect.width / 2;
+    const delta = targetCenter - containerCenter;
+
+    if (Math.abs(delta) > 1) {
+      container.scrollBy({
+        left: delta,
+        behavior
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    scrollToCurrentWeek('auto');
+    const t1 = setTimeout(() => scrollToCurrentWeek('auto'), 50);
+    const t2 = setTimeout(() => scrollToCurrentWeek('auto'), 200);
+
+    const handleResize = () => scrollToCurrentWeek('auto');
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [sleepHeatmapData, scrollToCurrentWeek]);
+
+
   const rhrHistoryData = useMemo(() => {
     if (!displayMetrics || displayMetrics.length === 0) return [];
     
@@ -644,68 +650,6 @@ export default function Health({ dailyMetrics = [], activities = [], hevySession
     setInputLat('');
     setInputLon('');
   };
-
-  const [dbCachedAnalyses, setDbCachedAnalyses] = useState<Record<string, any>>({});
-
-  useEffect(() => {
-    if (!currentMetrics?.date) return;
-    const targetDate = currentMetrics.date;
-
-    if (dbCachedAnalyses[targetDate]) return;
-
-    let isMounted = true;
-    fetch(`/api/health-analysis?date=${targetDate}`)
-      .then(res => res.json())
-      .then(data => {
-        if (!isMounted) return;
-        if (data && data.analysis) {
-          const record = data.analysis;
-          const hydrated = {
-            date: targetDate,
-            overall: { trendStatus: record.overall_trend, insightText: record.overall_insight, marginOfImprovement: record.overall_insight },
-            sleep: { trendStatus: record.sleep_trend, insightText: record.sleep_insight, marginOfImprovement: record.sleep_insight },
-            cardio: { trendStatus: record.cardio_trend, insightText: record.cardio_insight, marginOfImprovement: record.cardio_insight },
-            activity: { trendStatus: record.activity_trend, insightText: record.activity_insight, marginOfImprovement: record.activity_insight },
-            body: { trendStatus: record.body_trend, insightText: record.body_insight, marginOfImprovement: record.body_insight }
-          };
-          setDbCachedAnalyses(prev => ({ ...prev, [targetDate]: hydrated }));
-        } else {
-          const generated = generateHealthSectionAnalysis(currentMetrics, displayMetrics);
-          setDbCachedAnalyses(prev => ({ ...prev, [targetDate]: generated }));
-
-          const dbRecord = {
-            date: targetDate,
-            overall_trend: generated.overall.trendStatus,
-            overall_insight: generated.overall.insightText,
-            sleep_trend: generated.sleep.trendStatus,
-            sleep_insight: generated.sleep.insightText,
-            cardio_trend: generated.cardio.trendStatus,
-            cardio_insight: generated.cardio.insightText,
-            activity_trend: generated.activity.trendStatus,
-            activity_insight: generated.activity.insightText,
-            body_trend: generated.body.trendStatus,
-            body_insight: generated.body.insightText
-          };
-
-          fetch('/api/health-analysis', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ analysis: dbRecord })
-          }).catch(err => console.error('Failed to cache analysis in Supabase:', err));
-        }
-      })
-      .catch(err => console.error('Error querying Supabase health analysis:', err));
-
-    return () => { isMounted = false; };
-  }, [currentMetrics?.date, displayMetrics]);
-
-  const sectionAnalyses = useMemo(() => {
-    if (!currentMetrics) return null;
-    if (dbCachedAnalyses[currentMetrics.date]) {
-      return dbCachedAnalyses[currentMetrics.date];
-    }
-    return generateHealthSectionAnalysis(currentMetrics, displayMetrics);
-  }, [currentMetrics, displayMetrics, dbCachedAnalyses]);
 
   const sleepVsTargetData = useMemo(() => {
     if (!displayMetrics || displayMetrics.length === 0 || !currentMetrics?.date) return [];
@@ -938,38 +882,6 @@ export default function Health({ dailyMetrics = [], activities = [], hevySession
               </div>
             </div>
 
-            {sectionAnalyses?.overall && (
-              <div className="bg-[var(--surface-inset)] p-6 sm:p-8 border-t border-[var(--border-subtle)] rounded-b-[11px]">
-                <div className="flex items-center gap-2.5 mb-4">
-                  <div className="w-7 h-7 rounded-full bg-[var(--surface-card)] shadow-sm flex items-center justify-center border border-[var(--border-subtle)]">
-                    <Sparkles className="w-3.5 h-3.5 text-[var(--accent-lime)]" />
-                  </div>
-                  <span className="text-sm font-semibold text-primary tracking-tight">Overview AI</span>
-                </div>
-                <div className="space-y-4">
-                  <div className="space-y-1.5">
-                    <h4 className="text-xs font-bold text-primary uppercase tracking-widest">{sectionAnalyses.overall.trendStatus}</h4>
-                    <p className="text-sm text-secondary leading-relaxed font-sans">
-                      {sectionAnalyses.overall.insightText}
-                    </p>
-                  </div>
-                  <div className="space-y-1.5 pt-4 border-t border-[var(--border-subtle)]">
-                    <h4 className="text-xs font-bold text-primary uppercase tracking-widest">Readiness</h4>
-                    <p className="text-sm text-secondary leading-relaxed font-sans">
-                      {getReadinessComment(sleepScoreData?.finalScore)}
-                    </p>
-                  </div>
-                  {sectionAnalyses.sleep && sectionAnalyses.sleep.insightText && sectionAnalyses.sleep.insightText !== "N/A" && (
-                    <div className="space-y-1.5 pt-4 border-t border-[var(--border-subtle)]">
-                      <h4 className="text-xs font-bold text-primary uppercase tracking-widest">Sonno: {sectionAnalyses.sleep.trendStatus}</h4>
-                      <p className="text-sm text-secondary leading-relaxed font-sans">
-                        {sectionAnalyses.sleep.insightText}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
           </section>
 
           {/* ========================================================================= */}
@@ -1073,18 +985,8 @@ export default function Health({ dailyMetrics = [], activities = [], hevySession
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between mb-6">
+                <div className="mb-6">
                   <h4 className="text-xs font-bold text-primary uppercase tracking-widest">Bilancio Settimanale</h4>
-                  <div className="flex gap-4">
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-2.5 h-2.5 rounded-full border-2 border-[#3b82f6] bg-transparent" />
-                      <span className="text-[10px] uppercase tracking-widest text-primary font-bold">Ore Dormite</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-2.5 h-2.5 rounded-full border-2 border-[#64748b] bg-transparent" />
-                      <span className="text-[10px] uppercase tracking-widest text-primary font-bold">Fabbisogno</span>
-                    </div>
-                  </div>
                 </div>
                 <div className="h-[220px] w-full relative">
                   {/* Highlight current day column background */}
@@ -1159,28 +1061,36 @@ export default function Health({ dailyMetrics = [], activities = [], hevySession
                 </div>
 
                 {/* Right: Heatmap Grid */}
-                <div className="flex-1 overflow-x-auto pb-4 custom-scrollbar flex items-center lg:justify-start" onMouseLeave={() => setHoveredSleepDay(null)}>
-                  <div 
-                    className="grid grid-rows-7 grid-flow-col gap-1 min-w-max"
-                    style={{ gridAutoColumns: 'max-content' }}
-                  >
-                    {sleepHeatmapData.map((day, i) => (
-                      <div
-                        key={i}
-                        onMouseEnter={() => setHoveredSleepDay(day)}
-                        className="w-[12px] h-[12px] rounded-[3px] transition-transform hover:scale-125 cursor-crosshair"
-                        style={{ backgroundColor: day.score >= 90 ? '#3b82f6' : day.score >= 80 ? '#60a5fa' : day.score >= 60 ? '#d946ef' : day.score > 0 ? '#ec4899' : 'rgba(150,150,150,0.15)' }}
-                      />
-                    ))}
+                <div 
+                  ref={heatmapContainerRef}
+                  className="flex-1 overflow-x-auto pb-4 custom-scrollbar flex items-center lg:justify-start" 
+                  onMouseLeave={() => setHoveredSleepDay(null)}
+                >
+                  <div className="inline-flex min-w-max items-center py-1 mosaic-scroll-wrapper">
+                    <div 
+                      className="grid grid-rows-7 grid-flow-col gap-1 min-w-max"
+                      style={{ gridAutoColumns: 'max-content' }}
+                    >
+                      {sleepHeatmapData.map((day, i) => {
+                        const colIndex = Math.floor(i / 7);
+                        const isRefDay = colIndex === currentWeekCol && (i % 7 === 0);
+                        return (
+                          <div
+                            key={i}
+                            ref={isRefDay ? currentWeekRef : null}
+                            onMouseEnter={() => setHoveredSleepDay(day)}
+                            onClick={() => setHoveredSleepDay(day)}
+                            className="w-[12px] h-[12px] rounded-[3px] transition-transform hover:scale-125 cursor-crosshair"
+                            style={{ backgroundColor: day.score >= 90 ? '#3b82f6' : day.score >= 80 ? '#60a5fa' : day.score >= 60 ? '#d946ef' : day.score > 0 ? '#ec4899' : 'rgba(150,150,150,0.15)' }}
+                          />
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
               </div>
             )}
 
-{/* AI Insight */}
-            <div className="w-full">
-              <AiInsightAccordion analysis={sectionAnalyses?.sleep} title="Insight Sonno" />
-            </div>
           </section>
 
           {/* CARDIO E STRESS CARD */}
@@ -1277,11 +1187,6 @@ export default function Health({ dailyMetrics = [], activities = [], hevySession
                   )}
                 </div>
               </div>
-
-            {/* AI Insight */}
-            <div className="w-full mt-6">
-              <AiInsightAccordion analysis={sectionAnalyses?.cardio} title="Insight Cardio" />
-            </div>
           </section>
 
           {/* ATTIVITA E CORPO CARD */}
@@ -1381,11 +1286,6 @@ export default function Health({ dailyMetrics = [], activities = [], hevySession
                 </div>
               </div>
 
-            </div>
-
-            {/* AI Insights (Attivita) */}
-            <div className="w-full space-y-2 pt-2">
-              <AiInsightAccordion analysis={sectionAnalyses?.activity} title="Insight Attività" />
             </div>
           </section>
 

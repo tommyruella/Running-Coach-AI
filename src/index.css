@@ -478,3 +478,16 @@ body.light-theme .leaflet-tile-pane {
   background: var(--surface-inset);
   font-weight: 700;
 }
+
+.mosaic-scroll-wrapper {
+  padding-left: calc(50% - 8px);
+  padding-right: calc(50% - 8px);
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (min-width: 1024px) {
+  .mosaic-scroll-wrapper {
+    padding-left: 0;
+    padding-right: 0;
+  }
+}
