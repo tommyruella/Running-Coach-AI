@@ -491,3 +491,40 @@ body.light-theme .leaflet-tile-pane {
     padding-right: 0;
   }
 }
+
+/* ─────────────────────────────────────────────────────────────
+   CHARTS — Disable focus outlines, blue rectangles, and selection
+───────────────────────────────────────────────────────────── */
+.recharts-responsive-container,
+.recharts-wrapper,
+.recharts-surface,
+.recharts-legend-wrapper,
+.recharts-tooltip-wrapper,
+.recharts-responsive-container:focus,
+.recharts-responsive-container:focus-visible,
+.recharts-wrapper:focus,
+.recharts-wrapper:focus-visible,
+.recharts-surface:focus,
+.recharts-surface:focus-visible,
+svg.recharts-surface,
+svg.recharts-surface:focus,
+svg.recharts-surface:focus-visible,
+svg:focus,
+svg:focus-visible {
+  outline: none !important;
+  outline-style: none !important;
+  box-shadow: none !important;
+  -webkit-focus-ring-color: transparent !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -webkit-tap-highlight-color: transparent !important;
+}
+
+.recharts-wrapper *,
+.recharts-surface * {
+  outline: none !important;
+  outline-style: none !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -webkit-tap-highlight-color: transparent !important;
+}

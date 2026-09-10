@@ -767,9 +767,6 @@ export default function Health({ dailyMetrics = [], activities = [], hevySession
 
     return (
       <g transform={`translate(${x},${y})`}>
-        {isSelected && (
-          <rect x={-20} y={-10} width={40} height={40} fill="var(--surface-inset)" rx={4} />
-        )}
         <text x={0} y={4} dy={0} textAnchor="middle" fill="var(--text-muted)" fontSize={10}>
           {dataObj.dayName}
         </text>
@@ -963,7 +960,7 @@ export default function Health({ dailyMetrics = [], activities = [], hevySession
                       Media: <span className="font-bold text-primary">{Math.round(sleepVsTargetData.reduce((acc, curr) => acc + (curr.Score || 0), 0) / (sleepVsTargetData.filter(d => d.Score > 0).length || 1))}</span>/100
                     </div>
                   </div>
-                  <div className="h-[140px] w-full">
+                  <div className="h-[140px] w-full select-none outline-none">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={sleepVsTargetData} margin={{ top: 22, right: 10, left: 10, bottom: 0 }}>
                         <XAxis dataKey="dayName" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 11, fontWeight: 600 }} />
@@ -988,25 +985,7 @@ export default function Health({ dailyMetrics = [], activities = [], hevySession
                 <div className="mb-6">
                   <h4 className="text-xs font-bold text-primary uppercase tracking-widest">Bilancio Settimanale</h4>
                 </div>
-                <div className="h-[220px] w-full relative">
-                  {/* Highlight current day column background */}
-                  {(() => {
-                     const selectedIdx = sleepVsTargetData.findIndex(d => d.fullDate === currentMetrics?.date?.split('T')[0]);
-                     if (selectedIdx !== -1) {
-                        const colWidth = 100 / Math.max(sleepVsTargetData.length - 1, 1);
-                        const leftPct = (selectedIdx * colWidth);
-                        return (
-                          <div 
-                            className="absolute top-0 bottom-0 bg-[var(--surface-inset)] opacity-50 rounded-t-md pointer-events-none"
-                            style={{ 
-                              left: `calc(${leftPct}% - 20px)`, 
-                              width: '40px' 
-                            }}
-                          />
-                        );
-                     }
-                     return null;
-                  })()}
+                <div className="h-[220px] w-full relative select-none outline-none">
                   <ResponsiveContainer width="100%" height="100%">
                     <ComposedChart data={sleepVsTargetData} margin={{ top: 20, right: 20, left: -20, bottom: 20 }}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-subtle)" opacity={0.3} />
@@ -1101,7 +1080,7 @@ export default function Health({ dailyMetrics = [], activities = [], hevySession
             <div className="pt-2">
               <div className="space-y-4">
                 <span className="text-[10px] uppercase font-bold tracking-widest text-secondary block">HR Intraday (24h)</span>
-                <div className="h-[140px]">
+                <div className="h-[140px] select-none outline-none">
                   {currentMetrics?.hr_timeline && currentMetrics.hr_timeline.length > 0 ? (
                     <ResponsiveContainer width="100%" height="100%">
                       <LineChart data={currentMetrics.hr_timeline.map((h: any) => ({ time: new Date(h.time).getTime(), hr: h.hr }))}>
@@ -1129,7 +1108,7 @@ export default function Health({ dailyMetrics = [], activities = [], hevySession
             {/* Annual RHR Trend */}
               <div className="flex flex-col space-y-4 mt-6 pt-4 border-t border-[var(--border-subtle)]">
                 <span className="text-[10px] uppercase font-bold tracking-widest text-secondary block">Andamento RHR (365g)</span>
-                <div className="h-[150px] w-full">
+                <div className="h-[150px] w-full select-none outline-none">
                   {rhrHistoryData.length > 0 ? (
                     <ResponsiveContainer width="100%" height="100%">
                       <ComposedChart data={rhrHistoryData} margin={{ top: 5, right: 0, left: 0, bottom: 5 }}>
@@ -1160,7 +1139,7 @@ export default function Health({ dailyMetrics = [], activities = [], hevySession
               {/* Annual Stress Trend */}
               <div className="flex flex-col space-y-4 mt-6 pt-4 border-t border-[var(--border-subtle)]">
                 <span className="text-[10px] uppercase font-bold tracking-widest text-secondary block">Andamento Stress (365g)</span>
-                <div className="h-[150px] w-full">
+                <div className="h-[150px] w-full select-none outline-none">
                   {stressHistoryData.length > 0 ? (
                     <ResponsiveContainer width="100%" height="100%">
                       <ComposedChart data={stressHistoryData} margin={{ top: 5, right: 0, left: 0, bottom: 5 }}>
@@ -1228,7 +1207,7 @@ export default function Health({ dailyMetrics = [], activities = [], hevySession
               {/* Historical Weight Chart */}
               <div className="flex flex-col space-y-4">
                 <span className="text-[10px] uppercase font-bold tracking-widest text-secondary">Storico Peso (kg)</span>
-                <div className="h-[150px] w-full">
+                <div className="h-[150px] w-full select-none outline-none">
                   {weightHistoryData.length > 0 ? (
                     <ResponsiveContainer width="100%" height="100%">
                       <LineChart data={weightHistoryData} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
@@ -1263,7 +1242,7 @@ export default function Health({ dailyMetrics = [], activities = [], hevySession
                     <div className="flex items-center gap-1"><span className="w-3 h-1 rounded-sm" style={{ backgroundColor: '#eab308' }}></span> TSB</div>
                   </div>
                 </div>
-                <div className="h-[180px] w-full">
+                <div className="h-[180px] w-full select-none outline-none">
                   {fitnessFatigueData.length > 0 ? (
                     <ResponsiveContainer width="100%" height="100%">
                       <ComposedChart data={fitnessFatigueData} margin={{ top: 10, right: 0, left: 0, bottom: 5 }}>
